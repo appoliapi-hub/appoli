@@ -9,6 +9,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 120; // ✅ FIX: Increased from 60 to 120s for complex multi-page PDFs (Inspeksi ICS)
 
 const allowedCollections = new Set(['analisaUsaha', 'inspeksiICS', 'dataLahan']);
+const gasPdfUrl = process.env.APPOLI_GAS_PDF_URL;
 const escapeHtml = (value: unknown) => String(value ?? '-').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' }[character] || character));
 const money = (value: unknown) => `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
 const cell = (value: unknown) => `<td>${escapeHtml(value || '-')}</td>`;
@@ -75,6 +76,23 @@ function pdfErrorCode(error: unknown) {
   if (message.includes('Firebase Admin credentials')) return 'FIREBASE_ADMIN_NOT_CONFIGURED';
   if (/browser|chrome|chromium|executable|spawn|headless/i.test(message)) return 'PDF_BROWSER_UNAVAILABLE';
   return 'PDF_GENERATION_FAILED';
+}
+
+async function createPdfWithGas(collectionName: string, id: string, data: Record<string, unknown>) {
+  if (!gasPdfUrl) throw new Error('APPOLI_GAS_PDF_URL belum dikonfigurasi di server.');
+  const response = await fetch(gasPdfUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ collection: collectionName, documentId: id, data, secret: process.env.APPOLI_CALLBACK_SECRET }),
+    cache: 'no-store',
+  });
+  const result = await response.json().catch(() => null) as { status?: string; pesan?: string; pdfUrl?: string; fileId?: string } | null;
+  if (!response.ok || result?.status !== 'Sukses' || !result.fileId) {
+    throw new Error(result?.pesan || `GAS PDF gagal dibuat (HTTP ${response.status}).`);
+  }
+  const driveResponse = await fetch(`https://drive.google.com/uc?export=download&id=${encodeURIComponent(result.fileId)}`, { cache: 'no-store' });
+  if (!driveResponse.ok) throw new Error(`PDF tersimpan di Drive tetapi tidak dapat diunduh (HTTP ${driveResponse.status}).`);
+  return Buffer.from(await driveResponse.arrayBuffer());
 }
 
 // ✅ FIX: Add data validation helper
@@ -204,6 +222,11 @@ export async function GET(request: NextRequest) {
     // ✅ FIX: Validate form data before PDF generation
     validateFormData(collectionName, data);
     
+    if (gasPdfUrl) {
+      const pdf = await createPdfWithGas(collectionName, id, data);
+      return new NextResponse(pdf, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${collectionName}-${id}.pdf"`, 'Cache-Control': 'no-store' } });
+    }
+
     const content = collectionName === 'analisaUsaha' ? analisaHtml(data) : collectionName === 'inspeksiICS' ? inspeksiHtmlAppsScript(data) : lahanHtml(data);
     
     // ✅ FIX: Better browser creation error handling
