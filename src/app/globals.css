@@ -1,0 +1,137 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+@layer base {
+  select:not([multiple]):not([size]),
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]) {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background: linear-gradient(to bottom, #ffffff 0%, #f8fafc 100%);
+    border: 1.5px solid #cbd5e1;
+    border-radius: 1rem;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08), inset 0 1px 2px rgba(255, 255, 255, 0.5);
+    color: #1e293b;
+    line-height: 1.5;
+    padding: 0.75rem 1rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    cursor: pointer;
+  }
+
+  select:not([multiple]):not([size]) {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M5.5 7.5L10 12l4.5-4.5' stroke='%231e293b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1.2rem 1.2rem;
+    padding-right: 2.75rem;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]) {
+    cursor: text;
+  }
+
+  select:not([multiple]):not([size]) option {
+    color: #0f172a;
+    background: #ffffff;
+    padding: 0.75rem;
+    font-weight: 500;
+  }
+
+  select:not([multiple]):not([size]):hover,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):hover {
+    border-color: #10b981;
+    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.15), inset 0 1px 2px rgba(255, 255, 255, 0.5);
+    transform: translateY(-1px);
+  }
+
+  select:not([multiple]):not([size]):focus,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):focus {
+    outline: none;
+    border-color: #059669;
+    background: linear-gradient(to bottom, #ffffff 0%, #f0fdf4 100%);
+    box-shadow: 0 12px 32px rgba(16, 185, 129, 0.2), 0 0 0 3px rgba(16, 185, 129, 0.15), inset 0 1px 2px rgba(255, 255, 255, 0.7);
+  }
+
+  select:not([multiple]):not([size]):active,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):active {
+    transform: translateY(0);
+  }
+
+  select:not([multiple]):not([size]):disabled,
+  input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):not([type="submit"]):not([type="button"]):disabled {
+    background: linear-gradient(to bottom, #f1f5f9 0%, #e2e8f0 100%);
+    border-color: #cbd5e1;
+    color: #94a3b8;
+    cursor: not-allowed;
+    opacity: 0.65;
+    box-shadow: none;
+  }
+}
+
+/* Print Styles */
+/* Leaflet memakai z-index tinggi untuk marker dan kontrol. Tetap batasi di bawah sidebar aplikasi. */
+.leaflet-container {
+  position: relative;
+  z-index: 0 !important;
+}
+
+@media print {
+  body {
+    background: white;
+    margin: 0;
+    padding: 0;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Ukuran margin halaman */
+  @page {
+    margin: 0;
+    size: A4;
+  }
+
+  /* Jangan print scrollbar */
+  html {
+    overflow: visible;
+  }
+
+  /* Sembunyikan elemen non-print */
+  .no-print,
+  nav,
+  aside,
+  .sidebar,
+  [class*="sidebar"],
+  [class*="nav"] {
+    display: none !important;
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "name": "apoli",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@sparticuz/chromium": "^149.0.0",
+    "firebase": "^12.17.1",
+    "firebase-admin": "^14.3.0",
+    "git": "^0.1.5",
+    "html-to-image": "^1.11.13",
+    "lucide-react": "^1.32.0",
+    "next": "16.3.1",
+    "openai": "^7.5.0",
+    "puppeteer-core": "^25.8.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-to-print": "^3.3.0",
+    "recharts": "^3.10.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.1",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
