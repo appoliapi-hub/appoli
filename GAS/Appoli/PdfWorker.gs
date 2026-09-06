@@ -20,7 +20,8 @@ function doPost(event) {
     payload = JSON.parse(event && event.postData && event.postData.contents || '{}');
     var properties = PropertiesService.getScriptProperties();
     var configuredSecret = properties.getProperty('APPOLI_CALLBACK_SECRET') || '';
-    if (!configuredSecret || payload.secret !== configuredSecret) {
+    var requestSecret = event && event.parameter && event.parameter.secret || payload.secret || '';
+    if (!configuredSecret || requestSecret !== configuredSecret) {
       return pdfWorkerJson({ status: 'Gagal', pesan: 'Unauthorized.' });
     }
 

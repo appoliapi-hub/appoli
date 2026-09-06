@@ -70,34 +70,6 @@ function ambilDataPetani() {
   }
 }
 
-// Fungsi login tanpa menggunakan Google Sheet
-function cekLogin(username, password) {
-  try {
-    // Membersihkan spasi berlebih dan menyamakan huruf kecil
-    var inputUser = username.trim().toLowerCase();
-    var inputPass = password.trim();
-    
-    // Pengecekan langsung ke username "admin" dan sandi "1234"
-    if (inputUser === "admin" && inputPass === "1234") {
-      return { 
-        status: "Sukses", 
-        namaPetugas: "Admin" // Nama ini bisa Anda ganti sesuai keinginan
-      };
-    } else {
-      return { 
-        status: "Gagal", 
-        pesan: "Username atau Password salah!" 
-      };
-    }
-    
-  } catch (error) {
-    return { 
-      status: "Gagal", 
-      pesan: "Error sistem login: " + error.toString() 
-    };
-  }
-}
-
 // Fungsi Baru Backend: Membuat ID otomatis berdasarkan baris terakhir di Sheets (Format: PTN-001)
 function ambilNextId() {
   try {
@@ -158,6 +130,7 @@ function vNum(val) {
 function simpanDanCetakForm1(data) {
   try {
     var workerMode = data._worker === true;
+    if (!workerMode) throw new Error("GAS APPOLI hanya menerima job PDF dari worker.");
     var ss = workerMode ? null : SpreadsheetApp.getActiveSpreadsheet();
     var sheet = workerMode ? null : ss.getSheetByName("Database_Form1_Analisa");
     if (!workerMode) {
@@ -494,6 +467,7 @@ function simpanDanCetakForm2(paketData) {
     // 1. PROSES SIMPAN DATA KE SPREADSHEET
     // ==========================================
     var workerMode = paketData._worker === true;
+    if (!workerMode) throw new Error("GAS APPOLI hanya menerima job PDF dari worker.");
     var ss = workerMode ? null : SpreadsheetApp.getActiveSpreadsheet();
     var sheetName = "Database_Inspeksi";
     var sheet = workerMode ? null : ss.getSheetByName(sheetName);
@@ -997,6 +971,7 @@ function simpanDanCetakForm3(paketData) {
     // 1. PROSES SIMPAN DATA KE SPREADSHEET
     // ==========================================
     var workerMode = paketData._worker === true;
+    if (!workerMode) throw new Error("GAS APPOLI hanya menerima job PDF dari worker.");
     var ss = workerMode ? null : SpreadsheetApp.getActiveSpreadsheet();
     var sheetName = "Database_Pendataan_Lahan";
     var sheet = workerMode ? null : ss.getSheetByName(sheetName);
