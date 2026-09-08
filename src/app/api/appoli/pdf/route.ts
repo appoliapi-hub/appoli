@@ -259,8 +259,14 @@ export async function GET(request: NextRequest) {
 
     const storedPdfFile = storedPdfFileId(data.pdf);
     if (storedPdfFile) {
-      const pdf = await downloadStoredPdf(storedPdfFile);
-      return new NextResponse(pdf, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${collectionName}-${id}.pdf"`, 'Cache-Control': 'no-store' } });
+      try {
+        const pdf = await downloadStoredPdf(storedPdfFile);
+        return new NextResponse(pdf, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${collectionName}-${id}.pdf"`, 'Cache-Control': 'no-store' } });
+      } catch (storedPdfError) {
+        console.warn('PDF tersimpan tidak dapat diambil, mencoba membuat ulang:', storedPdfError);
+        const regeneratedPdf = await createPdfWithGas(collectionName, id, data);
+        return new NextResponse(regeneratedPdf, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${collectionName}-${id}.pdf"`, 'Cache-Control': 'no-store' } });
+      }
     }
     
     return NextResponse.json({ error: 'PDF untuk dokumen ini belum tersedia di Google Drive.' }, { status: 404 });
