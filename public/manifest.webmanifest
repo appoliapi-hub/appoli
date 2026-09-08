@@ -1,6 +1,6 @@
 {
-  "name": "APPOLI",
-  "short_name": "APPOLI",
+  "name": "ICS Appoli",
+  "short_name": "ICS Appoli",
   "description": "Sistem Informasi APPOLI",
   "lang": "id",
   "start_url": "/dashboard",

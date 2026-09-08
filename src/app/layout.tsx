@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Appoli",
+  title: "ICS Appoli",
   description: "Dashboard dan formulir Appoli",
   manifest: "/manifest.webmanifest",
   icons: {
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "Appoli",
+    title: "ICS Appoli",
     statusBarStyle: "default",
   },
 };
