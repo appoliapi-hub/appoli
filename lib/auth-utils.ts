@@ -1,6 +1,3 @@
-import { db } from './firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-
 /**
  * Mencari email berdasarkan username atau mengembalikan email jika input sudah email
  * @param usernameOrEmail - Username atau email untuk di-lookup
@@ -16,20 +13,16 @@ export async function getUserEmailByUsernameOrEmail(
     return trimmedInput;
   }
 
-  // Jika input adalah username, cari di Firestore
+  // Username dicari di server agar login anonim tidak perlu membaca koleksi users.
   try {
-    // Cari di collection 'users'
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, where('username', '==', trimmedInput));
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty) {
-      const userDoc = querySnapshot.docs[0];
-      return userDoc.data().email?.toLowerCase();
-    }
-
-    // Appoli memakai collection users dari Firebase project miliknya sendiri.
-    return undefined;
+    const response = await fetch('/api/auth/username', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: trimmedInput }),
+    });
+    if (!response.ok) throw new Error('Username lookup failed.');
+    const result = await response.json() as { email?: string | null };
+    return result.email || undefined;
   } catch (error) {
     console.error('Error looking up username:', error);
     throw new Error('Gagal memeriksa username. Silakan coba lagi.');
