@@ -16,7 +16,10 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if signedIn() && (isAdmin() || request.auth.uid == userId);
-      allow create, update, delete: if isAdmin();
+      allow create: if isAdmin() || (
+        signedIn() && request.auth.uid == userId && request.resource.data.role == 'user'
+      );
+      allow update, delete: if isAdmin();
     }
 
     // Operational records are available only to authenticated Appoli users.
