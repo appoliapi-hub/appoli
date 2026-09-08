@@ -169,8 +169,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <div className="flex items-center gap-3">
             <Image src={logoAppoli} alt="Logo Appoli" preload className="h-12 w-auto object-contain" />
             <div>
-              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">SIM-<span className="text-emerald-600">API</span></h1>
-              <p className="text-[10px] font-medium text-slate-500">Aliansi Petani Indondesia</p>
+              <h1 className="text-2xl font-bold text-slate-800 tracking-tight">APP<span className="text-emerald-600">OLI</span></h1>
+              <p className="text-[10px] font-medium text-slate-500">Aliansi Petani Padi dan Palawija Organik Boyolali</p>
             </div>
           </div>
           <button onClick={closeMenu} className="lg:hidden p-2 text-slate-400 hover:text-slate-600">

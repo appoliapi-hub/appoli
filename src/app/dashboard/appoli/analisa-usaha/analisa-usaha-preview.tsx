@@ -16,6 +16,7 @@ interface AnalisaUsahaPreviewProps {
   luasLahan: string;
   varietas: string;
   musimTanam: string;
+  namaPetugas: string;
   totalBiaya: number;
   totalHasilProduksi: number;
   labaRugiNetto: number;
@@ -29,6 +30,7 @@ export default function AnalisaUsahaPreview({
   luasLahan,
   varietas,
   musimTanam,
+  namaPetugas,
   totalBiaya,
   totalHasilProduksi,
   labaRugiNetto,
@@ -215,7 +217,7 @@ export default function AnalisaUsahaPreview({
           <p className="mb-1 font-bold">Boyolali, &nbsp;&nbsp;&nbsp;&nbsp; / &nbsp;&nbsp;&nbsp;&nbsp; / 2026</p>
           <div className="grid grid-cols-2 text-center">
             <div>Petani<div className="h-16"></div><p>( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )</p></div>
-            <div>Petugas Pendata<div className="h-16"></div><p>( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )</p></div>
+            <div>Petugas Pendata<div className="h-16"></div><p>( {namaPetugas || '.......................'} )</p></div>
           </div>
         </div>
       </div>

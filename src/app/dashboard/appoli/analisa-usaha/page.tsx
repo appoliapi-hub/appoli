@@ -46,6 +46,7 @@ export default function AnalisaUsahaPage() {
   const [luasLahan, setLuasLahan] = useState('');
   const [varietas, setVarietas] = useState('');
   const [musimTanam, setMusimTanam] = useState('2026');
+  const [namaPetugas, setNamaPetugas] = useState(auth.currentUser?.displayName || auth.currentUser?.email || '');
   const [isSaving, setIsSaving] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [savedRecordId, setSavedRecordId] = useState('');
@@ -61,7 +62,7 @@ export default function AnalisaUsahaPage() {
       luasLahan,
       varietas,
       musimTanam,
-      namaPetugas: auth.currentUser?.displayName || auth.currentUser?.email || '',
+      namaPetugas: namaPetugas.trim() || auth.currentUser?.displayName || auth.currentUser?.email || '',
       totalBiaya,
       subTotalA,
       subTotalB,
@@ -90,6 +91,11 @@ export default function AnalisaUsahaPage() {
     );
 
     return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    const currentUserName = auth.currentUser?.displayName || auth.currentUser?.email || '';
+    setNamaPetugas((prev) => prev || currentUserName);
   }, []);
 
   useEffect(() => {
@@ -377,6 +383,16 @@ export default function AnalisaUsahaPage() {
                   className="flex-1 bg-white border border-slate-300 rounded px-2.5 py-1 text-sm focus:outline-none focus:border-emerald-500"
                 />
               </div>
+              <div className="flex items-center">
+                <span className="w-32 text-xs font-semibold text-slate-700">Nama Petugas</span>
+                <input
+                  type="text"
+                  value={namaPetugas}
+                  onChange={(e) => setNamaPetugas(e.target.value)}
+                  placeholder="Nama petugas pendata"
+                  className="flex-1 bg-white border border-slate-300 rounded px-2.5 py-1 text-sm focus:outline-none focus:border-emerald-500"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -527,6 +543,7 @@ export default function AnalisaUsahaPage() {
               luasLahan={luasLahan}
               varietas={varietas}
               musimTanam={musimTanam}
+              namaPetugas={namaPetugas}
               totalBiaya={totalBiaya}
               totalHasilProduksi={totalHasilProduksi}
               labaRugiNetto={labaRugiNetto}
