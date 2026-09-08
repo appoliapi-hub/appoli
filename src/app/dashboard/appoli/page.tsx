@@ -195,7 +195,6 @@ export default function DashboardAppoli() {
         const result = await response.json() as { error?: string };
         if (!response.ok) throw new Error(result.error || `Gagal menghapus ${label}.`);
       }
-    <div className="flex justify-center gap-2"><button type="button" onClick={() => setSelectedPetani(item)} title="Lihat profil petani" className="rounded-md p-1.5 text-blue-600 transition hover:bg-blue-50"><Eye className="w-4 h-4" /></button><button type="button" onClick={() => removeRecord('petani', item.documentId || encodeURIComponent(item.idPetani), 'profil petani')} title="Hapus profil petani" className="rounded-md p-1.5 text-rose-600 transition hover:bg-rose-50"><Trash2 className="w-4 h-4" /></button></div>
     } catch (deleteError) {
       console.error(`Gagal menghapus ${label}:`, deleteError);
       setError(`Data ${label} gagal dihapus. Periksa hak akses data.`);
