@@ -28,6 +28,7 @@ export const ADMIN_UID = process.env.NEXT_PUBLIC_APPOLI_ADMIN_UID?.trim() || '';
 
 export const MENU_CONFIG = [
   { key: 'appoli', label: 'DASHBOARD APPOLI', href: '/dashboard/appoli' },
+  { key: 'profil-petani', label: 'PROFIL PETANI', href: '/dashboard/appoli/profil-petani' },
   { key: 'analisa-usaha', label: 'ANALISA USAHA', href: '/dashboard/appoli/analisa-usaha' },
   { key: 'inspeksi-ics', label: 'INSPEKSI ICS', href: '/dashboard/appoli/inspeksi-ics' },
   { key: 'data-lahan', label: 'DATA & LAHAN', href: '/dashboard/appoli/data-lahan' },
@@ -47,7 +48,9 @@ export function getMenuPermissions(profile: Pick<UserAccessProfile, 'role' | 'ac
   const permissions: MenuPermissions = {};
   MENU_CONFIG.forEach((menu) => {
     const saved = profile.menuPermissions?.[menu.key];
-    permissions[menu.key] = saved ?? { read: profile.role === 'admin' || profile.accessibleMenus.includes(menu.key), write: profile.role === 'admin' };
+    permissions[menu.key] = saved
+      ? { read: saved.read, write: saved.write || profile.accessibleMenus.includes(menu.key) }
+      : { read: profile.role === 'admin' || profile.accessibleMenus.includes(menu.key), write: profile.role === 'admin' || profile.accessibleMenus.includes(menu.key) };
   });
   return permissions;
 }
@@ -127,7 +130,7 @@ export async function syncUserProfileToFirestore(firebaseUser: { uid: string; em
     uid: firebaseUser.uid,
     role,
     accessibleMenus: getDefaultAccessibleMenus(role),
-    menuPermissions: Object.fromEntries(MENU_CONFIG.map((menu) => [menu.key, { read: role === 'admin' || getDefaultAccessibleMenus(role).includes(menu.key), write: role === 'admin' }])) as MenuPermissions,
+    menuPermissions: Object.fromEntries(MENU_CONFIG.map((menu) => [menu.key, { read: role === 'admin' || getDefaultAccessibleMenus(role).includes(menu.key), write: role === 'admin' || getDefaultAccessibleMenus(role).includes(menu.key) }])) as MenuPermissions,
   };
 
   if (!firebaseUser.uid) return profile;

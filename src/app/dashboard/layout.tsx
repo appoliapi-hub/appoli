@@ -129,6 +129,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     baseline: { icon: Search, label: 'BASELINE', href: '/dashboard/baseline' },
     saggd: { icon: LineChart, label: 'SAGGD', href: '/dashboard/saggd' },
     appoli: { icon: LayoutDashboard, label: 'DASHBOARD APPOLI', href: '/dashboard/appoli' },
+    'profil-petani': { icon: UsersRound, label: 'PROFIL PETANI', href: '/dashboard/appoli/profil-petani' },
     'analisa-usaha': { icon: Calculator, label: 'ANALISA USAHA', href: '/dashboard/appoli/analisa-usaha' },
     'inspeksi-ics': { icon: ClipboardCheck, label: 'INSPEKSI ICS', href: '/dashboard/appoli/inspeksi-ics' },
     'data-lahan': { icon: Map, label: 'DATA & LAHAN', href: '/dashboard/appoli/data-lahan' },

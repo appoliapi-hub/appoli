@@ -20,7 +20,7 @@ function getBearerToken(request: Request): string {
 function defaultPermissions(role: 'admin' | 'user', menus: MenuKey[]): MenuPermissions {
   return Object.fromEntries(APPOLI_MENU_KEYS.map((menu) => [menu, {
     read: role === 'admin' || menus.includes(menu),
-    write: role === 'admin',
+    write: role === 'admin' || menus.includes(menu),
   }])) as MenuPermissions;
 }
 
@@ -135,6 +135,10 @@ export async function PATCH(request: Request) {
     const uid = body.uid?.trim() || '';
     if (!uid) return NextResponse.json({ error: 'UID user wajib diisi.' }, { status: 400 });
 
+    const requester = await adminAuth.verifyIdToken(getBearerToken(request));
+    if (uid === requester.uid && (body.role === 'user' || body.disabled === true)) {
+      return NextResponse.json({ error: 'Akun admin yang sedang digunakan tidak dapat dinonaktifkan atau diturunkan.' }, { status: 400 });
+    }
     const current = await adminAuth.getUser(uid);
     const name = body.name?.trim() || current.displayName || current.email?.split('@')[0] || 'User';
     await adminAuth.updateUser(uid, {
