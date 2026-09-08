@@ -74,6 +74,7 @@ async function createPdfBrowser() {
 function pdfErrorCode(error: unknown) {
   const message = error instanceof Error ? error.message : '';
   if (message.includes('Firebase Admin credentials')) return 'FIREBASE_ADMIN_NOT_CONFIGURED';
+  if (/APPOLI_GAS_PDF_URL|Google Drive|DriveApp|File .*tidak ditemukan|PDF .*tidak dapat diunduh/i.test(message)) return 'PDF_STORAGE_UNAVAILABLE';
   if (/browser|chrome|chromium|executable|spawn|headless/i.test(message)) return 'PDF_BROWSER_UNAVAILABLE';
   return 'PDF_GENERATION_FAILED';
 }
@@ -259,14 +260,8 @@ export async function GET(request: NextRequest) {
 
     const storedPdfFile = storedPdfFileId(data.pdf);
     if (storedPdfFile) {
-      try {
-        const pdf = await downloadStoredPdf(storedPdfFile);
-        return new NextResponse(pdf, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${collectionName}-${id}.pdf"`, 'Cache-Control': 'no-store' } });
-      } catch (storedPdfError) {
-        console.warn('PDF tersimpan tidak dapat diambil, mencoba membuat ulang:', storedPdfError);
-        const regeneratedPdf = await createPdfWithGas(collectionName, id, data);
-        return new NextResponse(regeneratedPdf, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${collectionName}-${id}.pdf"`, 'Cache-Control': 'no-store' } });
-      }
+      const pdf = await downloadStoredPdf(storedPdfFile);
+      return new NextResponse(pdf, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${collectionName}-${id}.pdf"`, 'Cache-Control': 'no-store' } });
     }
     
     return NextResponse.json({ error: 'PDF untuk dokumen ini belum tersedia di Google Drive.' }, { status: 404 });

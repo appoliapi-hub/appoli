@@ -35,6 +35,7 @@ export async function fetchAppoliPdf(collection: AppoliPdfCollection, id: string
       const messageByCode: Record<string, string> = {
         FIREBASE_ADMIN_NOT_CONFIGURED: 'PDF tidak dapat dibuat karena kredensial Firebase Admin belum dikonfigurasi di Vercel.',
         PDF_BROWSER_UNAVAILABLE: 'Mesin pembuat PDF tidak tersedia di server. Coba lagi setelah deployment selesai.',
+        PDF_STORAGE_UNAVAILABLE: 'PDF lama tidak dapat diambil. Periksa APPOLI_GAS_PDF_URL, secret, dan akses file pada Apps Script.',
       };
       throw new Error(messageByCode[detail?.code || ''] || detail?.error || 'PDF tidak dapat dibuat.');
     }
