@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { collection, onSnapshot } from 'firebase/firestore';
-import { Activity, BarChart3, CheckCircle2, ClipboardCheck, Download, Edit3, Eye, Leaf, Loader2, Map, MapPinned, Plus, Search, Sprout, Tractor, Trash2, Users, XCircle } from 'lucide-react';
+import { Activity, BarChart3, CheckCircle2, ClipboardCheck, Download, Edit3, Eye, Leaf, Loader2, Map as MapIcon, MapPinned, Plus, Search, Sprout, Tractor, Trash2, Users, XCircle } from 'lucide-react';
 import { auth, db } from '../../../../lib/firebase';
 import { downloadAppoliPdf, fetchAppoliPdf, openAppoliPdf, type AppoliPdfCollection } from '../../../../lib/appoli-pdf';
 import { useMenuPermission } from '../../../../lib/use-menu-permission';
@@ -246,7 +246,7 @@ export default function DashboardAppoli() {
 
     return [
       { label: 'Total Petani', value: petani.length.toLocaleString('id-ID'), icon: Users, color: 'text-blue-600', bg: 'bg-blue-50' },
-      { label: 'Total Luas Lahan', value: `${totalLuas.toLocaleString('id-ID', { maximumFractionDigits: 2 })} Ha`, icon: Map, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+      { label: 'Total Luas Lahan', value: `${totalLuas.toLocaleString('id-ID', { maximumFractionDigits: 2 })} Ha`, icon: MapIcon, color: 'text-emerald-600', bg: 'bg-emerald-50' },
       { label: 'Komoditas Aktif', value: komoditas.size.toLocaleString('id-ID'), icon: Sprout, color: 'text-amber-600', bg: 'bg-amber-50' },
       { label: 'Kelompok Tani', value: kelompok.size.toLocaleString('id-ID'), icon: Tractor, color: 'text-violet-600', bg: 'bg-violet-50' },
     ];
