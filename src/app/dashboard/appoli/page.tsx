@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { collection, deleteDoc, doc, onSnapshot } from 'firebase/firestore';
-import { Activity, ClipboardCheck, Edit3, Eye, Leaf, Loader2, Map, MapPinned, Plus, Search, Sprout, Tractor, Trash2, Users } from 'lucide-react';
+import { collection, onSnapshot } from 'firebase/firestore';
+import { Activity, BarChart3, CheckCircle2, ClipboardCheck, Download, Edit3, Eye, Leaf, Loader2, Map, MapPinned, Plus, Search, Sprout, Tractor, Trash2, Users, XCircle } from 'lucide-react';
 import { auth, db } from '../../../../lib/firebase';
 import { downloadAppoliPdf, fetchAppoliPdf, openAppoliPdf, type AppoliPdfCollection } from '../../../../lib/appoli-pdf';
 import { useMenuPermission } from '../../../../lib/use-menu-permission';
@@ -49,6 +49,7 @@ type AnalisaUsaha = {
   totalHasilProduksi?: number;
   labaRugiNetto?: number;
   formData?: Record<string, AnalisaUsahaRow>;
+  pdf?: { status?: string; url?: string; fileId?: string; fileName?: string };
   createdAt?: unknown;
 };
 type Inspection = { id: string; idPetani?: string; namaPetani?: string; inspektur?: string; tanggal?: string; jam?: string; statusBidang?: string; kelolaOrganik?: string; keputusan?: string; totalLahanM2?: number; lahan?: { luas: string; utama: string; selingan: string; kimia: string }[]; kriteria?: Record<string, { kondisi: string; dasar: string }>; manajemenRisiko?: Record<string, { level: string; dasar: string }>; rekomendasi?: { kondisiSebelum: string; tahunIni: string; syaratPenjelasan: string }; sanksiTambahan?: string; createdAt?: unknown };
@@ -123,6 +124,8 @@ export default function DashboardAppoli() {
   const [selectedInspection, setSelectedInspection] = useState<Inspection | null>(null);
   const [selectedLandSurvey, setSelectedLandSurvey] = useState<LandSurvey | null>(null);
   const [analisaPage, setAnalisaPage] = useState(1);
+  const [downloadingAnalisaId, setDownloadingAnalisaId] = useState('');
+  const [deletingRecordKey, setDeletingRecordKey] = useState('');
   const canWritePetani = useMenuPermission('profil-petani', 'write');
   const canWriteAnalisa = useMenuPermission('analisa-usaha', 'write');
   const canWriteInspection = useMenuPermission('inspeksi-ics', 'write');
@@ -141,7 +144,7 @@ export default function DashboardAppoli() {
       },
       (snapshotError) => {
         console.error('Gagal memuat data petani:', snapshotError);
-        setError('Data petani belum dapat dimuat. Periksa koneksi atau hak akses Firestore.');
+        setError('Data petani belum dapat dimuat. Periksa koneksi atau hak akses data.');
         setLoading(false);
       }
     );
@@ -163,8 +166,11 @@ export default function DashboardAppoli() {
     return unsubscribe;
   }, []);
 
-  const removeRecord = async (collectionName: string, id: string, label: string) => {
+  const removeRecord = async (collectionName: string, id: string, label: string, fileId = '') => {
     if (!window.confirm(`Hapus ${label} ini? Data yang dihapus tidak dapat dikembalikan.`)) return;
+    const deleteKey = `${collectionName}:${id}`;
+    if (deletingRecordKey) return;
+    setDeletingRecordKey(deleteKey);
     try {
       const canWrite = collectionName === 'petani' ? canWritePetani : collectionName === 'analisaUsaha' ? canWriteAnalisa : collectionName === 'inspeksiICS' ? canWriteInspection : canWriteLand;
       if (!canWrite) throw new Error('User tidak memiliki izin tulis untuk menu ini.');
@@ -179,14 +185,34 @@ export default function DashboardAppoli() {
         const result = await response.json() as { error?: string };
         if (!response.ok) throw new Error(result.error || 'Gagal menghapus profil petani.');
       } else {
-        await deleteDoc(doc(db, collectionName, id));
+        const idToken = await auth.currentUser?.getIdToken();
+        if (!idToken) throw new Error('Sesi admin tidak ditemukan. Silakan login kembali.');
+        const response = await fetch('/api/appoli/delete', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${idToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ collection: collectionName, documentId: id, fileId }),
+        });
+        const result = await response.json() as { error?: string };
+        if (!response.ok) throw new Error(result.error || `Gagal menghapus ${label}.`);
       }
-          /*
     <div className="flex justify-center gap-2"><button type="button" onClick={() => setSelectedPetani(item)} title="Lihat profil petani" className="rounded-md p-1.5 text-blue-600 transition hover:bg-blue-50"><Eye className="w-4 h-4" /></button><button type="button" onClick={() => removeRecord('petani', item.documentId || encodeURIComponent(item.idPetani), 'profil petani')} title="Hapus profil petani" className="rounded-md p-1.5 text-rose-600 transition hover:bg-rose-50"><Trash2 className="w-4 h-4" /></button></div>
-      */
     } catch (deleteError) {
       console.error(`Gagal menghapus ${label}:`, deleteError);
-      setError(`Data ${label} gagal dihapus. Periksa hak akses Firestore.`);
+      setError(`Data ${label} gagal dihapus. Periksa hak akses data.`);
+    } finally {
+      setDeletingRecordKey('');
+    }
+  };
+
+  const downloadAnalisaPdf = async (id: string) => {
+    if (downloadingAnalisaId) return;
+    setDownloadingAnalisaId(id);
+    try {
+      await downloadAppoliPdf('analisaUsaha', id);
+    } catch (downloadError) {
+      alert(downloadError instanceof Error ? downloadError.message : 'PDF tidak dapat diunduh.');
+    } finally {
+      setDownloadingAnalisaId('');
     }
   };
 
@@ -225,6 +251,40 @@ export default function DashboardAppoli() {
       { label: 'Kelompok Tani', value: kelompok.size.toLocaleString('id-ID'), icon: Tractor, color: 'text-violet-600', bg: 'bg-violet-50' },
     ];
   }, [petani]);
+
+  const analytics = useMemo(() => {
+    const now = new Date();
+    const monthKeys = Array.from({ length: 6 }, (_, index) => {
+      const date = new Date(now.getFullYear(), now.getMonth() - (5 - index), 1);
+      return {
+        key: `${date.getFullYear()}-${date.getMonth()}`,
+        label: new Intl.DateTimeFormat('id-ID', { month: 'short' }).format(date),
+        count: 0,
+      };
+    });
+    const monthLookup = new Map(monthKeys.map((month) => [month.key, month]));
+    petani.forEach((farmer) => {
+      const time = getRecordTime((farmer as Petani & { createdAt?: unknown }).createdAt);
+      if (!time) return;
+      const date = new Date(time);
+      const month = monthLookup.get(`${date.getFullYear()}-${date.getMonth()}`);
+      if (month) month.count += 1;
+    });
+
+    const inspectionStatus = { approved: 0, review: 0, rejected: 0 };
+    inspections.forEach((inspection) => {
+      const decision = normalizeLabel(inspection.keputusan);
+      if (decision.includes('tolak')) inspectionStatus.rejected += 1;
+      else if (decision.includes('syarat') || decision.includes('perbaikan')) inspectionStatus.review += 1;
+      else if (decision) inspectionStatus.approved += 1;
+    });
+
+    return {
+      months: monthKeys,
+      inspectionStatus,
+      totalForms: analisaUsaha.length + inspections.length + landSurveys.length,
+    };
+  }, [analisaUsaha.length, inspections, landSurveys.length, petani]);
 
   const mapPoints = useMemo(() => petani.flatMap((farmer) => {
     const lands = getAllFarmerLands(farmer).map((land, index) => ({ title: index === 0 ? 'Lahan Utama' : `Lahan Tambahan ${index}`, land }));
@@ -300,7 +360,7 @@ export default function DashboardAppoli() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Dashboard Appoli</h1>
-          <p className="text-sm text-slate-500">Ringkasan data petani yang tersinkron secara real-time dari Firestore.</p>
+          <p className="text-sm text-slate-500">Ringkasan data petani yang tersinkron secara real-time.</p>
         </div>
         <button type="button" onClick={() => setIsFormOpen(true)} disabled={!canWritePetani} className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">
           <Plus className="w-4 h-4" /> Tambah Petani
@@ -321,6 +381,20 @@ export default function DashboardAppoli() {
 
       <AppoliMap points={mapPoints} />
 
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm lg:col-span-2">
+          <div className="mb-5 flex items-center justify-between gap-3"><div><h2 className="flex items-center gap-2 text-lg font-bold text-slate-800"><BarChart3 className="h-5 w-5 text-blue-600" />Pertumbuhan Petani</h2><p className="text-xs text-slate-500">Data baru dalam enam bulan terakhir</p></div><span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-700">{petani.length} total</span></div>
+          <div className="flex h-44 items-end gap-3 border-b border-slate-200 px-2 pb-2">
+            {analytics.months.map((month) => { const maximum = Math.max(1, ...analytics.months.map((item) => item.count)); const height = month.count ? Math.max(10, (month.count / maximum) * 100) : 4; return <div key={month.key} className="flex min-w-0 flex-1 flex-col items-center gap-2"><span className="text-xs font-bold text-slate-600">{month.count}</span><div className="flex h-28 w-full max-w-10 items-end rounded-t-md bg-slate-100"><div className="w-full rounded-t-md bg-blue-500 transition-all" style={{ height: `${height}%` }} /></div><span className="text-[11px] font-semibold capitalize text-slate-500">{month.label}</span></div>; })}
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="mb-5"><h2 className="flex items-center gap-2 text-lg font-bold text-slate-800"><ClipboardCheck className="h-5 w-5 text-amber-600" />Status Inspeksi ICS</h2><p className="text-xs text-slate-500">Distribusi keputusan terakhir</p></div>
+          <div className="space-y-4 text-sm"><div className="flex items-center justify-between"><span className="flex items-center gap-2 text-slate-600"><CheckCircle2 className="h-4 w-4 text-emerald-600" />Disetujui</span><strong className="text-slate-900">{analytics.inspectionStatus.approved}</strong></div><div className="flex items-center justify-between"><span className="flex items-center gap-2 text-slate-600"><Activity className="h-4 w-4 text-amber-600" />Perlu perbaikan</span><strong className="text-slate-900">{analytics.inspectionStatus.review}</strong></div><div className="flex items-center justify-between"><span className="flex items-center gap-2 text-slate-600"><XCircle className="h-4 w-4 text-rose-600" />Ditolak</span><strong className="text-slate-900">{analytics.inspectionStatus.rejected}</strong></div><div className="border-t border-slate-200 pt-4"><span className="text-xs text-slate-500">Total formulir operasional</span><p className="mt-1 text-2xl font-bold text-slate-900">{analytics.totalForms}</p></div></div>
+        </div>
+      </section>
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <section className="lg:col-span-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex flex-col gap-4 border-b border-slate-200 bg-slate-50 p-5 sm:flex-row sm:items-center sm:justify-between">
@@ -328,13 +402,13 @@ export default function DashboardAppoli() {
             <div className="relative w-full sm:w-64"><Search className="absolute left-3 top-1/2 w-4 -translate-y-1/2 text-slate-400" /><input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Cari ID, nama, kelompok..." className="w-full rounded-lg border border-slate-300 py-2 pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-emerald-500" /></div>
           </div>
           {error ? <p className="p-6 text-sm text-rose-600">{error}</p> : loading ? <div className="flex items-center justify-center gap-2 p-12 text-sm text-slate-500"><Loader2 className="w-5 animate-spin text-emerald-600" />Memuat data petani...</div> : (
-            <div className="overflow-x-auto"><table className="w-full text-left text-sm text-slate-600"><thead className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">ID & Nama</th><th className="px-5 py-3">Kelompok / Komoditas</th><th className="px-5 py-3">Luas Lahan</th><th className="px-5 py-3 text-center">Aksi</th></tr></thead><tbody className="divide-y divide-slate-100">{filteredPetani.length === 0 ? <tr><td colSpan={4} className="px-5 py-10 text-center text-slate-500">Belum ada data petani yang sesuai.</td></tr> : filteredPetani.map((item) => <tr key={item.documentId || item.idPetani} className="hover:bg-slate-50"><td className="px-5 py-3"><p className="font-semibold text-slate-900">{item.namaPetani}</p><p className="font-mono text-xs text-slate-500">{item.idPetani}</p></td><td className="px-5 py-3"><p className="font-medium text-slate-800">{item.kelompokTani}</p><p className="mt-0.5 flex items-center gap-1 text-xs text-emerald-600"><Sprout className="w-3 h-3" />{item.komoditasUtama}</p></td><td className="px-5 py-3 font-medium">{item.lahanUtama?.luasLahan || '—'}</td><td className="px-5 py-3"><div className="flex justify-center gap-2"><button type="button" onClick={() => setSelectedPetani(item)} title="Lihat profil petani" className="rounded-md p-1.5 text-blue-600 transition hover:bg-blue-50"><Eye className="w-4 h-4" /></button><button type="button" onClick={() => removeRecord('petani', item.documentId || encodeURIComponent(item.idPetani), 'profil petani')} title="Hapus profil petani" className="rounded-md p-1.5 text-rose-600 transition hover:bg-rose-50"><Trash2 className="w-4 h-4" /></button></div></td></tr>)}</tbody></table></div>
+            <div className="overflow-x-auto"><table className="w-full text-left text-sm text-slate-600"><thead className="border-b border-slate-200 text-[11px] uppercase tracking-wider text-slate-500"><tr><th className="px-5 py-3">ID & Nama</th><th className="px-5 py-3">Kelompok / Komoditas</th><th className="px-5 py-3">Luas Lahan</th><th className="px-5 py-3 text-center">Aksi</th></tr></thead><tbody className="divide-y divide-slate-100">{filteredPetani.length === 0 ? <tr><td colSpan={4} className="px-5 py-10 text-center text-slate-500">Belum ada data petani yang sesuai.</td></tr> : filteredPetani.map((item) => { const documentId = item.documentId || encodeURIComponent(item.idPetani); return <tr key={item.documentId || item.idPetani} className="hover:bg-slate-50"><td className="px-5 py-3"><p className="font-semibold text-slate-900">{item.namaPetani}</p><p className="font-mono text-xs text-slate-500">{item.idPetani}</p></td><td className="px-5 py-3"><p className="font-medium text-slate-800">{item.kelompokTani}</p><p className="mt-0.5 flex items-center gap-1 text-xs text-emerald-600"><Sprout className="w-3 h-3" />{item.komoditasUtama}</p></td><td className="px-5 py-3 font-medium">{item.lahanUtama?.luasLahan || '—'}</td><td className="px-5 py-3"><div className="flex justify-center gap-2"><button type="button" onClick={() => setSelectedPetani(item)} title="Lihat profil petani" className="rounded-md p-1.5 text-blue-600 transition hover:bg-blue-50"><Eye className="w-4 h-4" /></button><button type="button" disabled={Boolean(deletingRecordKey)} onClick={() => void removeRecord('petani', documentId, 'profil petani')} title="Hapus profil petani" className="rounded-md p-1.5 text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"><Trash2 className="w-4 h-4" /></button></div></td></tr>; })}</tbody></table></div>
           )}
         </section>
 
         <aside className="h-fit rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 bg-slate-50 p-5"><h2 className="flex items-center gap-2 text-lg font-bold text-slate-800"><Activity className="w-5 h-5 text-blue-600" />Status Data</h2></div>
-          <div className="space-y-4 p-5 text-sm"><div className="flex gap-3"><span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" /><div><p className="font-semibold text-slate-800">Firestore tersambung</p><p className="text-slate-500">Daftar dan ringkasan diperbarui otomatis saat data berubah.</p></div></div><div className="flex gap-3"><span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500" /><div><p className="font-semibold text-slate-800">Data siap dikelola</p><p className="text-slate-500">Tambahkan profil petani melalui tombol di atas.</p></div></div><div className="rounded-lg bg-emerald-50 p-4 text-emerald-800"><Leaf className="mb-2 w-5" /><p className="font-semibold">{petani.length} profil petani tercatat</p></div></div>
+          <div className="space-y-4 p-5 text-sm"><div className="flex gap-3"><span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-emerald-500" /><div><p className="font-semibold text-slate-800">Data tersambung</p><p className="text-slate-500">Daftar dan ringkasan diperbarui otomatis saat data berubah.</p></div></div><div className="flex gap-3"><span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500" /><div><p className="font-semibold text-slate-800">Data siap dikelola</p><p className="text-slate-500">Tambahkan profil petani melalui tombol di atas.</p></div></div><div className="rounded-lg bg-emerald-50 p-4 text-emerald-800"><Leaf className="mb-2 w-5" /><p className="font-semibold">{petani.length} profil petani tercatat</p></div></div>
         </aside>
       </div>
 
@@ -368,8 +442,9 @@ export default function DashboardAppoli() {
                     <td className="px-5 py-3 text-slate-700">{(item as AnalisaUsaha & { namaPetugas?: string }).namaPetugas || '-'}</td>
                     <td className="px-5 py-3">
                       <div className="flex justify-center gap-2">
-                        <button type="button" onClick={() => setSelectedAnalisa(item)} title="Lihat preview analisa usaha" aria-label="Lihat preview analisa usaha" className="rounded-md p-1.5 text-blue-600 transition hover:bg-blue-50"><Eye className="h-4 w-4" /></button>
-                        <button type="button" onClick={() => removeRecord('analisaUsaha', item.id, 'analisa usaha')} title="Hapus analisa usaha" aria-label="Hapus analisa usaha" className="rounded-md p-1.5 text-rose-600 transition hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button>
+                        <button type="button" onClick={() => setSelectedAnalisa(item)} title="Lihat PDF dalam modal" aria-label="Lihat PDF dalam modal" className="rounded-md p-1.5 text-blue-600 transition hover:bg-blue-50"><Eye className="h-4 w-4" /></button>
+                        <button type="button" onClick={() => void downloadAnalisaPdf(item.id)} disabled={Boolean(downloadingAnalisaId)} title="Download PDF" aria-label="Download PDF" className="rounded-md p-1.5 text-emerald-600 transition hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"><Download className="h-4 w-4" /></button>
+                        <button type="button" onClick={() => removeRecord('analisaUsaha', item.id, 'analisa usaha', item.pdf?.fileId)} title="Hapus analisa usaha dan PDF Drive" aria-label="Hapus analisa usaha dan PDF Drive" className="rounded-md p-1.5 text-rose-600 transition hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -392,7 +467,7 @@ export default function DashboardAppoli() {
           ['Nama Petugas', (record) => String(record.inspektur || '-')],
         ]}
         onPreview={setSelectedInspection}
-        onDelete={(id) => removeRecord('inspeksiICS', id, 'inspeksi ICS')}
+        onDelete={(id, record) => removeRecord('inspeksiICS', id, 'inspeksi ICS', String(record.pdf?.fileId || ''))}
       />
 
       <RecordSection
@@ -406,7 +481,7 @@ export default function DashboardAppoli() {
           ['Nama Petugas', (record) => String(record.namaPetugas || '-')],
         ]}
         onPreview={setSelectedLandSurvey}
-        onDelete={(id) => removeRecord('dataLahan', id, 'data lahan')}
+        onDelete={(id, record) => removeRecord('dataLahan', id, 'data lahan', String(record.pdf?.fileId || ''))}
       />
       </div>
 
@@ -549,13 +624,13 @@ export default function DashboardAppoli() {
   );
 }
 
-type RecordRow = { id: string } & Record<string, unknown>;
-function RecordSection({ title, icon, empty, records, columns, onPreview, onDelete }: { title: string; icon: React.ReactNode; empty: string; records: RecordRow[]; columns: [string, (record: RecordRow) => string][]; onPreview: (record: RecordRow) => void; onDelete: (id: string) => void }) {
+type RecordRow = { id: string; pdf?: { fileId?: string } } & Record<string, unknown>;
+function RecordSection({ title, icon, empty, records, columns, onPreview, onDelete }: { title: string; icon: React.ReactNode; empty: string; records: RecordRow[]; columns: [string, (record: RecordRow) => string][]; onPreview: (record: RecordRow) => void; onDelete: (id: string, record: RecordRow) => void }) {
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(records.length / 5));
   const currentPage = Math.min(page, pageCount);
   const visibleRecords = records.slice((currentPage - 1) * 5, currentPage * 5);
-  return <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 p-5">{icon}<h2 className="text-lg font-bold text-slate-800">{title}</h2><span className="ml-auto rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-600">{records.length} data</span></div>{records.length === 0 ? <p className="p-6 text-sm text-slate-500">{empty}</p> : <div className="overflow-x-auto"><table className="w-full text-left text-sm text-slate-600"><thead className="border-b border-slate-200 bg-white text-[11px] uppercase tracking-wider text-slate-500"><tr>{columns.map(([label]) => <th key={label} className="px-5 py-3">{label}</th>)}<th className="px-5 py-3 text-center">Aksi</th></tr></thead><tbody className="divide-y divide-slate-100">{visibleRecords.map((record) => <tr key={record.id} className="hover:bg-slate-50">{columns.map(([label, value]) => <td key={label} className="px-5 py-3">{value(record)}</td>)}<td className="px-5 py-3"><div className="flex justify-center gap-2"><button type="button" onClick={() => onPreview(record)} title="Lihat preview" className="rounded-md p-1.5 text-blue-600 hover:bg-blue-50"><Eye className="h-4 w-4" /></button><button type="button" onClick={() => onDelete(record.id)} title="Hapus data" className="rounded-md p-1.5 text-rose-600 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button></div></td></tr>)}</tbody></table><Pagination page={currentPage} pageCount={pageCount} total={records.length} onPageChange={setPage} /></div>}</section>;
+  return <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 p-5">{icon}<h2 className="text-lg font-bold text-slate-800">{title}</h2><span className="ml-auto rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-600">{records.length} data</span></div>{records.length === 0 ? <p className="p-6 text-sm text-slate-500">{empty}</p> : <div className="overflow-x-auto"><table className="w-full text-left text-sm text-slate-600"><thead className="border-b border-slate-200 bg-white text-[11px] uppercase tracking-wider text-slate-500"><tr>{columns.map(([label]) => <th key={label} className="px-5 py-3">{label}</th>)}<th className="px-5 py-3 text-center">Aksi</th></tr></thead><tbody className="divide-y divide-slate-100">{visibleRecords.map((record) => <tr key={record.id} className="hover:bg-slate-50">{columns.map(([label, value]) => <td key={label} className="px-5 py-3">{value(record)}</td>)}<td className="px-5 py-3"><div className="flex justify-center gap-2"><button type="button" onClick={() => onPreview(record)} title="Lihat preview" className="rounded-md p-1.5 text-blue-600 hover:bg-blue-50"><Eye className="h-4 w-4" /></button><button type="button" onClick={() => onDelete(record.id, record)} title="Hapus data dan PDF Drive" className="rounded-md p-1.5 text-rose-600 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button></div></td></tr>)}</tbody></table><Pagination page={currentPage} pageCount={pageCount} total={records.length} onPageChange={setPage} /></div>}</section>;
 }
 
 function Pagination({ page, pageCount, total, onPageChange }: { page: number; pageCount: number; total: number; onPageChange: (page: number) => void }) { return <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 text-xs text-slate-500"><span>Menampilkan maksimal 5 dari {total} data</span><div className="flex items-center gap-2"><button type="button" disabled={page <= 1} onClick={() => onPageChange(page - 1)} className="rounded-md border border-slate-300 px-3 py-1.5 font-semibold disabled:cursor-not-allowed disabled:opacity-40">Prev</button><span>Halaman {page} / {pageCount}</span><button type="button" disabled={page >= pageCount} onClick={() => onPageChange(page + 1)} className="rounded-md border border-slate-300 px-3 py-1.5 font-semibold disabled:cursor-not-allowed disabled:opacity-40">Next</button></div></div>; }
@@ -603,6 +678,8 @@ function PdfPreviewModal({ title, recordId, children, onClose }: { title: string
   const collectionName = title.includes('Analisa') ? 'analisaUsaha' : title.includes('Inspeksi') ? 'inspeksiICS' : 'dataLahan';
   const [previewError, setPreviewError] = useState('');
   const [isGenerating, setIsGenerating] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(8);
+  const [loadingMessage, setLoadingMessage] = useState('Menghubungkan ke server PDF...');
   const [isDownloading, setIsDownloading] = useState(false);
   const [pdfUrl, setPdfUrl] = useState('');
 
@@ -610,9 +687,16 @@ function PdfPreviewModal({ title, recordId, children, onClose }: { title: string
     if (!resolvedRecordId) return;
     let objectUrl = '';
     let cancelled = false;
+    const progressTimers = [
+      window.setTimeout(() => { setLoadingProgress(30); setLoadingMessage('Memproses data formulir...'); }, 900),
+      window.setTimeout(() => { setLoadingProgress(65); setLoadingMessage('Mengambil berkas PDF...'); }, 3500),
+      window.setTimeout(() => { setLoadingProgress(85); setLoadingMessage('Menyiapkan tampilan PDF...'); }, 10000),
+    ];
     void fetchAppoliPdf(collectionName as AppoliPdfCollection, resolvedRecordId)
       .then((blob) => {
         if (cancelled) return;
+        setLoadingProgress(100);
+        setLoadingMessage('PDF siap ditampilkan.');
         objectUrl = URL.createObjectURL(blob);
         setPdfUrl(objectUrl);
       })
@@ -624,6 +708,7 @@ function PdfPreviewModal({ title, recordId, children, onClose }: { title: string
       });
     return () => {
       cancelled = true;
+      progressTimers.forEach((timer) => window.clearTimeout(timer));
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [collectionName, resolvedRecordId]);
@@ -660,13 +745,19 @@ function PdfPreviewModal({ title, recordId, children, onClose }: { title: string
         <h2 className="truncate text-sm font-bold text-slate-800">{title}</h2>
         <div className="flex shrink-0 items-center gap-2">
           {previewError && <span className="hidden max-w-sm truncate text-xs text-rose-600 sm:inline">{previewError}</span>}
-          <button type="button" onClick={downloadPdf} disabled={isDownloading || isGenerating || !pdfUrl} className="rounded-md border border-emerald-600 px-3 py-2 text-xs font-semibold text-emerald-700 disabled:cursor-not-allowed disabled:opacity-50">{isDownloading ? 'Mengunduh...' : 'Download PDF'}</button>
-          <button type="button" onClick={printPdf} disabled={isGenerating || isDownloading || !pdfUrl} className="rounded-md bg-sky-600 px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50">Buka / Cetak PDF</button>
           <button type="button" onClick={onClose} aria-label="Tutup viewer PDF" className="rounded-md border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700">Tutup</button>
         </div>
       </div>
       <div className="relative min-h-0 flex-1 bg-slate-800">
-        {isGenerating && <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-800 text-sm font-semibold text-white">Menyiapkan PDF...</div>}
+        {isGenerating && <div className="absolute inset-0 z-10 flex items-center justify-center bg-slate-800 p-6 text-white">
+          <div className="w-full max-w-md text-center">
+            <div className="mb-4 flex items-center justify-center gap-2 text-sm font-semibold"><Loader2 className="h-5 w-5 animate-spin text-emerald-400" />{loadingMessage}</div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-600" role="progressbar" aria-label="Progres menyiapkan PDF" aria-valuemin={0} aria-valuemax={100} aria-valuenow={loadingProgress}>
+              <div className="h-full rounded-full bg-emerald-400 transition-all duration-500" style={{ width: `${loadingProgress}%` }} />
+            </div>
+            <p className="mt-2 text-xs text-slate-300">{loadingProgress}%</p>
+          </div>
+        </div>}
         {previewError && !isGenerating && <div className="flex h-full items-center justify-center p-6 text-center text-sm text-rose-200">{previewError}</div>}
         {pdfUrl && <iframe title={title} src={pdfUrl} className="h-full w-full border-0" />}
       </div>

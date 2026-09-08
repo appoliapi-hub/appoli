@@ -86,17 +86,53 @@ async function createPdfWithGas(collectionName: string, id: string, data: Record
     body: JSON.stringify({ collection: collectionName, documentId: id, data, secret: process.env.APPOLI_CALLBACK_SECRET }),
     cache: 'no-store',
   });
-  const result = await response.json().catch(() => null) as { status?: string; pesan?: string; pdfUrl?: string; fileId?: string } | null;
+  const result = await response.json().catch(() => null) as { status?: string; pesan?: string; pdfUrl?: string; fileId?: string; data?: string } | null;
   if (!response.ok || result?.status !== 'Sukses' || !result.fileId) {
     throw new Error(result?.pesan || `GAS PDF gagal dibuat (HTTP ${response.status}).`);
   }
-  const driveResponse = await fetch(`https://drive.google.com/uc?export=download&id=${encodeURIComponent(result.fileId)}`, { cache: 'no-store' });
+  if (result.data) {
+    const { adminDb } = getAdminServices();
+    await adminDb.collection(collectionName).doc(id).set({ pdf: { status: 'ready', url: result.pdfUrl || '', fileId: result.fileId, fileName: `${collectionName}-${id}.pdf`, error: '', updatedAt: new Date() } }, { merge: true });
+    return Buffer.from(result.data, 'base64');
+  }
+  const driveResponse = await fetch(`https://drive.usercontent.google.com/download?id=${encodeURIComponent(result.fileId)}&export=download&confirm=t`, { cache: 'no-store' });
   if (!driveResponse.ok) throw new Error(`PDF tersimpan di Drive tetapi tidak dapat diunduh (HTTP ${driveResponse.status}).`);
+  const { adminDb } = getAdminServices();
+  await adminDb.collection(collectionName).doc(id).set({
+    pdf: {
+      status: 'ready',
+      url: result.pdfUrl || '',
+      fileId: result.fileId,
+      fileName: `${collectionName}-${id}.pdf`,
+      error: '',
+      updatedAt: new Date(),
+    },
+  }, { merge: true });
   return Buffer.from(await driveResponse.arrayBuffer());
+}
+
+async function downloadStoredPdf(fileId: string) {
+  if (!gasPdfUrl) throw new Error('APPOLI_GAS_PDF_URL belum dikonfigurasi di server.');
+  const response = await fetch(gasPdfUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'downloadPdf', fileId, secret: process.env.APPOLI_CALLBACK_SECRET }),
+    cache: 'no-store',
+  });
+  const result = await response.json().catch(() => null) as { status?: string; pesan?: string; contentType?: string; data?: string } | null;
+  if (!response.ok || result?.status !== 'Sukses' || !result.data) throw new Error(result?.pesan || `PDF Google Drive tidak dapat diunduh (HTTP ${response.status}).`);
+  if (result.contentType && result.contentType !== 'application/pdf') throw new Error('File Google Drive bukan PDF.');
+  return Buffer.from(result.data, 'base64');
+}
+
+function storedPdfFileId(value: unknown) {
+  const pdf = value as { fileId?: string; url?: string } | undefined;
+  return pdf?.fileId || pdf?.url?.match(/[-\w]{25,}/)?.[0] || '';
 }
 
 // ✅ FIX: Add data validation helper
 function validateFormData(collection: string, data: Record<string, unknown>) {
+  const normalizedData: Record<string, unknown> = { ...data, idPetani: data.idPetani || data.petaniId };
   const requiredFields: Record<string, string[]> = {
     analisaUsaha: ['namaPetani', 'idPetani', 'formData'],
     inspeksiICS: ['namaPetani', 'idPetani', 'kriteria'],
@@ -104,7 +140,7 @@ function validateFormData(collection: string, data: Record<string, unknown>) {
   };
   
   const required = requiredFields[collection] || [];
-  const missing = required.filter((key) => !data[key]);
+  const missing = required.filter((key) => !normalizedData[key]);
   
   if (missing.length > 0) {
     console.warn(`⚠️ WARNING: Data ${collection} tidak lengkap. Fields yang kosong: ${missing.join(', ')}`);
@@ -167,7 +203,7 @@ function inspeksiHtml(data: Record<string, unknown>) {
   const riskRows = Object.entries(risks).map(([key, value]) => `<tr>${cell(riskLabels[key] || key)}<td class="center">${['Rendah', 'Menengah', 'Tinggi'].map((level) => value.level === level ? '[✓]' : '[ ]').join(' ')}</td>${cell(value.dasar)}</tr>`).join('');
   const inspectPage = `${identity(data)}<p class="muted"><i>Lingkari atau contreng keterangan yang dipilih</i></p><table><tr><td width="55%">Bidang lahan, apakah sama dengan tahun lalu dan telah diregistrasi dalam dokumentasi internal?</td><td class="center"><b>${['Baru', 'Sama', 'Penambahan', 'Pengurangan'].map((value) => `[${data.statusBidang === value ? '✓' : ' '}] ${value}`).join(' &nbsp; ')}</b></td></tr></table><table><tr class="label"><td>Bidang lahan</td><td>m²</td><td>Tanaman utama</td><td>Tanaman selingan</td><td>Terakhir pemakaian kimia terlarang</td></tr>${landRows}<tr class="label"><td class="number">Total Lahan m²:</td>${cell(data.totalLahanM2)}</tr></table><table><tr><td>Seluruh usahatani dilahan organic dikelola secara organik (seluruh tanaman)</td><td class="center"><b>${data.kelolaOrganik === 'Ya' ? '[✓]' : '[ ]'} Ya &nbsp; ${data.kelolaOrganik === 'Tidak' ? '[✓]' : '[ ]'} Tidak</b></td></tr></table><table class="dark"><tr><th>Kriteria / Aspek Pemeriksaan Kepatuhan Lapangan</th><th>Diterima</th><th>Tidak</th><th>Dasar Penerimaan / Kondisi Riil</th></tr><tr><td class="label" colspan="4">1. Kriteria Production Ternak</td></tr>${checkRows}</table>`;
   const continuation = `<div class="page-break"></div><table class="dark"><tr><th>Kriteria / Aspek Pemeriksaan Kepatuhan Lapangan (Lanjutan)</th><th>Diterima</th><th>Tidak</th><th>Dasar penerimaan / kondisi</th></tr>${['pola_organik', 'pasca_olah', 'pasca_kemasan', 'pasca_simpan'].map((key) => { const value = checks[key] || { kondisi: '', dasar: '' }; return `<tr>${cell(labels[key])}<td class="center">${value.kondisi === 'Diterima' ? '[✓]' : '[ ]'}</td><td class="center">${value.kondisi === 'Tidak' ? '[✓]' : '[ ]'}</td>${cell(value.dasar)}</tr>`; }).join('')}</table><div class="section">Manajemen resiko</div><table><tr class="label"><td>Resiko kontaminasi</td><td>Rendah / Menengah / Tinggi</td><td>Keterangan</td></tr>${riskRows}<tr><td colspan="3"><b>Langkah yang diambil untuk mengurangi resiko :</b><br>${cell((data.manajemenRisiko as Record<string, unknown>)?.langkahMitigasi)}</td></tr></table><table><tr><td class="label" colspan="2">Rekomendasi persetujuan inspektor</td></tr><tr><td>Rekomendasi tahun ini</td>${cell((data.rekomendasi as Record<string, unknown>)?.tahunIni)}</tr><tr><td>Persyaratan atau penjelasan</td>${cell((data.rekomendasi as Record<string, unknown>)?.syaratPenjelasan)}</tr><tr><td class="label" colspan="2">Kesepakatan Keputusan oleh Operator ICS</td></tr><tr><td>Keputusan</td>${cell(data.keputusan)}</tr><tr><td>Persyaratan tambahan atau sanksi</td>${cell(data.sanksiTambahan)}</tr></table><div class="signatures"><div>Petani<div class="signature-space"></div><p>(................................)</p>${escapeHtml(data.namaPetani)}</div><div>Internal Inspektor<div class="signature-space"></div><p>(................................)</p>${escapeHtml(data.inspektur)}</div><div style="grid-column:2;text-align:center;margin-top:25px">Tanda tangan Manajer Persetujuan<div class="signature-space"></div><p>(................................)</p></div></div>`;
-  return inspectPage + continuation;
+  return inspectPage + continuation.replace('grid-column:2;text-align:center;margin-top:25px">Tanda tangan Manajer Persetujuan', 'grid-column:1;text-align:left;margin-top:25px">Tanda tangan Komisi persetujuan').replace('Tanda tangan Komisi persetujuan<div class="signature-space"></div><p>(................................)</p>', 'Tanda tangan Komisi persetujuan');
 }
 
 function inspeksiHtmlAppsScript(data: Record<string, unknown>) {
@@ -191,6 +227,8 @@ function inspeksiHtmlAppsScript(data: Record<string, unknown>) {
     .replace(/O baik[\s\S]*?O tidak ada kondisi tahun sebelumnya/, choiceOptions(String(recommendation.kondisiSebelum || ''), ['Baik', 'Sebagian/diterima', 'Hilang/tidak diterima', 'Tidak ada kondisi tahun sebelumnya']))
     .replace(/O menyetujui tanpa syarat[\s\S]*?O hilang \/tidak diterima/, choiceOptions(String(recommendation.tahunIni || ''), ['Menyetujui tanpa syarat', 'Menyetujui dengan syarat', 'Hilang /tidak diterima']))
     .replace(/□ Menyetujui Tanpa Syarat[\s\S]*?□ Tidak Dapat Disetujui/, choiceOptions(String(data.keputusan || ''), ['Menyetujui Tanpa Syarat', 'Menyetujui Dengan Syarat', 'Tidak Dapat Disetujui'], '□'))
+    .replace('class="center" style="height:75px"><b>Tanda tangan Manajer Persetujuan', 'style="height:75px;text-align:left;vertical-align:top"><b>Tanda tangan Komisi persetujuan')
+    .replace('style="height:75px;text-align:left;vertical-align:top"><b>Tanda tangan Komisi persetujuan</b><div class="signature-space"></div><u>( .................................... )</u>', 'style="height:75px;text-align:left;vertical-align:bottom"><b>Tanda tangan Komisi persetujuan</b>')
     .replace(/^<table class="kop">[\s\S]*?<\/table>/, '');
   return firstPageOutput + secondPageOutput;
 }
@@ -218,37 +256,48 @@ export async function GET(request: NextRequest) {
     const snapshot = await adminDb.collection(collectionName).doc(id).get();
     if (!snapshot.exists) return NextResponse.json({ error: 'Data tidak ditemukan.' }, { status: 404 });
     const data = snapshot.data() as Record<string, unknown>;
-    
-    // ✅ FIX: Validate form data before PDF generation
-    validateFormData(collectionName, data);
-    
-    if (gasPdfUrl) {
-      const pdf = await createPdfWithGas(collectionName, id, data);
+
+    const storedPdfFile = storedPdfFileId(data.pdf);
+    if (storedPdfFile) {
+      const pdf = await downloadStoredPdf(storedPdfFile);
       return new NextResponse(pdf, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${collectionName}-${id}.pdf"`, 'Cache-Control': 'no-store' } });
     }
+    
+    return NextResponse.json({ error: 'PDF untuk dokumen ini belum tersedia di Google Drive.' }, { status: 404 });
 
-    const content = collectionName === 'analisaUsaha' ? analisaHtml(data) : collectionName === 'inspeksiICS' ? inspeksiHtmlAppsScript(data) : lahanHtml(data);
-    
-    // ✅ FIX: Better browser creation error handling
-    let browser;
-    try {
-      browser = await createPdfBrowser();
-    } catch (browserError) {
-      console.error('Browser initialization failed:', browserError);
-      throw new Error(`Browser tidak dapat diinisialisasi: ${browserError instanceof Error ? browserError.message : 'Unknown error'}`);
-    }
-    
-    try {
-      const page = await browser.newPage();
-      const isInspection = collectionName === 'inspeksiICS';
-      await page.setContent(layout(collectionName === 'analisaUsaha' ? 'ANALISA USAHA TANI' : isInspection ? 'FORMULIR INSPEKSI INTERNAL' : 'FORMULIR PENDATAAN PETANI DAN LAHAN', content, isInspection ? '8.5in 14in' : 'A4', isInspection ? '0.5in' : '10mm', isInspection ? 'inspection' : collectionName === 'analisaUsaha' ? 'analisa' : ''), { waitUntil: 'load' });
-      const pdf = await page.pdf({ format: 'A4', printBackground: true, preferCSSPageSize: true });
-      return new NextResponse(Buffer.from(pdf), { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${collectionName}-${id}.pdf"`, 'Cache-Control': 'no-store' } });
-    } finally { 
-      await browser.close(); 
-    }
   } catch (error) {
     console.error('Gagal membuat PDF Appoli:', error);
     return NextResponse.json({ error: 'PDF gagal dibuat.', code: pdfErrorCode(error) }, { status: 500 });
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { adminAuth, adminDb } = getAdminServices();
+    const authorization = request.headers.get('authorization');
+    const idToken = authorization?.startsWith('Bearer ')
+      ? authorization.slice('Bearer '.length)
+      : '';
+    if (!idToken) return NextResponse.json({ error: 'Token autentikasi tidak ditemukan.' }, { status: 401 });
+    await adminAuth.verifyIdToken(idToken);
+
+    const body = await request.json() as { collection?: string; id?: string };
+    const collectionName = body.collection || '';
+    const id = body.id || '';
+    if (!allowedCollections.has(collectionName) || !id) return NextResponse.json({ error: 'Koleksi atau ID tidak valid.' }, { status: 400 });
+
+    const snapshot = await adminDb.collection(collectionName).doc(id).get();
+    if (!snapshot.exists) return NextResponse.json({ error: 'Data tidak ditemukan.' }, { status: 404 });
+    const data = snapshot.data() as Record<string, unknown>;
+    const storedPdfFile = storedPdfFileId(data.pdf);
+    if (storedPdfFile) return NextResponse.json({ status: 'ready' });
+
+    validateFormData(collectionName, data);
+    if (!gasPdfUrl) throw new Error('APPOLI_GAS_PDF_URL belum dikonfigurasi di server.');
+    await createPdfWithGas(collectionName, id, data);
+    return NextResponse.json({ status: 'ready' });
+  } catch (error) {
+    console.error('Gagal membuat PDF Appoli saat menyimpan:', error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'PDF gagal dibuat.' }, { status: 500 });
   }
 }

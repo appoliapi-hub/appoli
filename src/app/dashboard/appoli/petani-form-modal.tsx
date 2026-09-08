@@ -1,10 +1,12 @@
 'use client';
 
 import { useState, type ChangeEvent, type FormEvent } from 'react';
+import Image from 'next/image';
 import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore';
 import { LocateFixed, Loader2, MapPin, Plus, Save, Trash2, X } from 'lucide-react';
 import { db } from '../../../../lib/firebase';
 import { useMenuPermission } from '../../../../lib/use-menu-permission';
+import SaveLoadingOverlay from './save-loading-overlay';
 
 type Lahan = { statusLahan: string; alamatLahan: string; luasLahan: string; komoditas: string; latitude: string; longitude: string };
 type PetaniForm = { idPetani: string; namaPetani: string; alamatPetani: string; noHp: string; kelompokTani: string; komoditasUtama: string; lahanUtama: Lahan; lahanTambahan: Lahan[] };
@@ -95,17 +97,19 @@ export default function PetaniFormModal({ open, onClose, initialData }: { open: 
       onClose();
     } catch (submissionError) {
       console.error('Gagal menyimpan data petani:', submissionError);
-      setError('Data gagal disimpan. Periksa koneksi dan hak akses Firestore.');
+      setError('Data gagal disimpan. Periksa koneksi dan hak akses.');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="form-petani-title" onMouseDown={onClose}>
+    <>
+      <SaveLoadingOverlay open={saving} />
+      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="form-petani-title" onMouseDown={onClose}>
       <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white shadow-2xl" onMouseDown={(event) => event.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-start justify-between border-b border-slate-200 bg-white p-5">
-          <div><h2 id="form-petani-title" className="text-xl font-bold text-slate-900">{initialData ? 'Edit Profil Petani' : 'Input Profil Petani'}</h2><p className="text-sm text-slate-500">{initialData ? 'Perbarui identitas dan informasi lahan petani.' : 'Lengkapi identitas dan informasi lahan petani.'}</p></div>
+          <div className="flex items-center gap-3"><Image src="/images/logo-appoli.png" alt="Logo APPOLI" width={48} height={48} className="h-12 w-12 object-contain" /><div><h2 id="form-petani-title" className="text-xl font-bold text-slate-900">{initialData ? 'Edit Profil Petani' : 'Input Profil Petani'}</h2><p className="text-sm text-slate-500">{initialData ? 'Perbarui identitas dan informasi lahan petani.' : 'Lengkapi identitas dan informasi lahan petani.'}</p></div></div>
           <button type="button" onClick={onClose} className="rounded-lg p-2 text-slate-500 hover:bg-slate-100" aria-label="Tutup form"><X className="w-5 h-5" /></button>
         </div>
         <form onSubmit={submit} className="space-y-5 p-5">
@@ -123,6 +127,7 @@ export default function PetaniFormModal({ open, onClose, initialData }: { open: 
           <div className="flex justify-end gap-3"><button type="button" onClick={onClose} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">Batal</button><button disabled={saving || !canWrite} className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-70">{saving ? <Loader2 className="w-4 animate-spin" /> : <Save className="w-4" />}{saving ? 'Menyimpan...' : initialData ? 'Simpan Perubahan' : 'Simpan Data'}</button></div>
         </form>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

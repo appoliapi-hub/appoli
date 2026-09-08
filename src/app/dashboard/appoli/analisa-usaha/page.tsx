@@ -1,12 +1,14 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { FileText, Loader2 } from 'lucide-react';
 import { addDoc, collection, getDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../../../../../lib/firebase';
-import { downloadAppoliPdf, openAppoliPdf } from '../../../../../lib/appoli-pdf';
+import { createAppoliPdf, downloadAppoliPdf, openAppoliPdf } from '../../../../../lib/appoli-pdf';
 import { useMenuPermission } from '../../../../../lib/use-menu-permission';
 import AnalisaUsahaPreview from './analisa-usaha-preview';
+import SaveLoadingOverlay from '../save-loading-overlay';
 
 interface RowData {
   waktu: string;
@@ -47,7 +49,6 @@ export default function AnalisaUsahaPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [savedRecordId, setSavedRecordId] = useState('');
-  const [pdfLoading, setPdfLoading] = useState(false);
 
   const buildPayload = () => {
     const petani = petaniOptions.find((item) => item.idPetani === selectedPetani);
@@ -249,46 +250,47 @@ export default function AnalisaUsahaPage() {
       const reference = await addDoc(collection(db, 'analisaUsaha'), buildPayload());
       const savedSnapshot = await getDoc(reference);
       const saved = savedSnapshot.data();
-      if (!saved) throw new Error('Data Firestore tidak ditemukan setelah disimpan.');
-      setKodePetani(String(saved.kodePetani || ''));
-      setKelompokTani(String(saved.kelompokTani || ''));
-      setLuasLahan(String(saved.luasLahan || ''));
-      setVarietas(String(saved.varietas || ''));
-      setMusimTanam(String(saved.musimTanam || ''));
-      setFormData(saved.formData as FormState);
-      setSavedRecordId(reference.id);
-      setShowPreviewModal(true);
+      if (!saved) throw new Error('Data tidak ditemukan setelah disimpan.');
+      await createAppoliPdf('analisaUsaha', reference.id);
+      setSelectedPetani('');
+      setKodePetani('');
+      setKelompokTani('');
+      setLuasLahan('');
+      setVarietas('');
+      setMusimTanam('2026');
+      setFormData((current) => Object.fromEntries(Object.keys(current).map((key) => [key, { ...initialRowState }])) as FormState);
+      setSavedRecordId('');
+      setShowPreviewModal(false);
       alert('Analisa usaha berhasil disimpan.');
     } catch (error) {
       console.error('Gagal menyimpan analisa usaha:', error);
-      alert('Data gagal disimpan ke Firestore. Periksa koneksi dan hak akses.');
+      const message = error instanceof Error ? error.message : '';
+      alert(message.includes('DriveApp')
+        ? 'Data sudah tersimpan, tetapi PDF belum dibuat. Silakan coba lagi.'
+        : 'Data gagal disimpan. Periksa koneksi dan hak akses.');
     } finally {
       setIsSaving(false);
     }
   };
 
   const handlePrintPdf = async () => {
-    if (!savedRecordId || pdfLoading) return;
-    setPdfLoading(true);
+    if (!savedRecordId) return;
     try { await openAppoliPdf('analisaUsaha', savedRecordId); }
     catch (error) { alert(error instanceof Error ? error.message : 'PDF tidak dapat dibuat.'); }
-    finally { setPdfLoading(false); }
   };
   const handleDownloadPdf = async () => {
-    if (!savedRecordId || pdfLoading) return;
-    setPdfLoading(true);
+    if (!savedRecordId) return;
     try { await downloadAppoliPdf('analisaUsaha', savedRecordId); }
-    catch (error) { setPdfLoading(false); alert(error instanceof Error ? error.message : 'PDF tidak dapat diunduh.'); return; }
-    setPdfLoading(false);
+    catch (error) { alert(error instanceof Error ? error.message : 'PDF tidak dapat diunduh.'); }
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-4 sm:p-6 bg-white rounded-xl shadow-lg border border-slate-200 text-slate-800 my-6">
+    <>
+      <SaveLoadingOverlay open={isSaving} />
+      <div className="max-w-5xl mx-auto p-4 sm:p-6 bg-white rounded-xl shadow-lg border border-slate-200 text-slate-800 my-6">
       <div className="text-center border-b border-slate-300 pb-4 mb-6 print:hidden">
         <div className="flex items-center justify-center gap-3 mb-1">
-          <div className="w-12 h-12 rounded-full bg-slate-100 border border-slate-300 flex items-center justify-center font-bold text-xs text-slate-700">
-            APPOLI
-          </div>
+          <Image src="/images/logo-appoli.png" alt="Logo APPOLI" width={56} height={56} className="h-14 w-14 rounded-full object-contain" />
           <div>
             <h1 className="text-xl font-bold tracking-tight text-slate-900">APPOLI</h1>
             <h2 className="text-sm font-semibold text-slate-700">
@@ -541,26 +543,11 @@ export default function AnalisaUsahaPage() {
             >
               Tutup
             </button>
-            <button
-              type="button"
-              onClick={handleDownloadPdf}
-              disabled={pdfLoading || !savedRecordId}
-              className="rounded-lg border border-emerald-600 px-4 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {pdfLoading ? 'Menyiapkan PDF...' : 'Download PDF'}
-            </button>
-            <button
-              type="button"
-              onClick={handlePrintPdf}
-              disabled={pdfLoading || !savedRecordId}
-              className="rounded-lg border border-sky-200 bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {pdfLoading ? 'Membuka PDF...' : 'Buka / Cetak PDF'}
-            </button>
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { adminDb } = getAdminServices();
-    await adminDb.collection(body.collection).doc(body.documentId).update({
+    await adminDb.collection(body.collection).doc(body.documentId).set({
       pdf: {
         status: body.status === 'ready' ? 'ready' : 'failed',
         url: body.pdfUrl || '',
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
         error: body.error || '',
         updatedAt: new Date(),
       },
-    });
+    }, { merge: true });
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error('Callback PDF Appoli gagal:', error);

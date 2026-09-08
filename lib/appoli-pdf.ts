@@ -2,6 +2,22 @@ import { auth } from './firebase';
 
 export type AppoliPdfCollection = 'analisaUsaha' | 'inspeksiICS' | 'dataLahan';
 
+export async function createAppoliPdf(collection: AppoliPdfCollection, id: string): Promise<void> {
+  const token = await auth.currentUser?.getIdToken();
+  if (!token) throw new Error('Sesi login berakhir. Silakan masuk kembali.');
+
+  const response = await fetch('/api/appoli/pdf', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ collection, id }),
+    cache: 'no-store',
+  });
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(detail?.error || 'PDF gagal dibuat saat menyimpan data.');
+  }
+}
+
 export async function fetchAppoliPdf(collection: AppoliPdfCollection, id: string): Promise<Blob> {
   const token = await auth.currentUser?.getIdToken();
   if (!token) throw new Error('Sesi login berakhir. Silakan masuk kembali.');

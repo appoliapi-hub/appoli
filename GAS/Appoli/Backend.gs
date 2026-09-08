@@ -428,16 +428,23 @@ function simpanDanCetakForm1(data) {
     var filePdf = folderTujuan.createFile(blobPdf);
     var urlLinkPdf = filePdf.getUrl();
     
-    // Buka akses share agar tautan bisa dibuka oleh internal APPOLI
-    filePdf.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    // Sharing publik bersifat opsional; file tetap valid jika kebijakan Drive menolaknya.
+    var sharingWarning = '';
+    try {
+      filePdf.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (sharingError) {
+      sharingWarning = ' Catatan: akses link publik tidak dapat diubah oleh kebijakan Drive.';
+      console.error(sharingError);
+    }
     
     // Catat URL PDF ke baris data kolom terakhir (kolom 13)
     if (!workerMode) sheet.getRange(barisTerakhir, 13).setValue(urlLinkPdf);
     
     return { 
       status: "Sukses", 
-      pesan: "✔ Analisa Usaha Tani berhasil disimpan ke folder PDF_DOKUMEN_APPOLI/Form 1 - Pendaftaran Petani!", 
-      pdfUrl: urlLinkPdf 
+      pesan: "✔ Analisa Usaha Tani berhasil disimpan ke folder PDF_DOKUMEN_APPOLI/Form 1 - Pendaftaran Petani!" + sharingWarning,
+      pdfUrl: urlLinkPdf,
+      fileId: filePdf.getId()
     };
     
   } catch(e) { 
@@ -903,15 +910,7 @@ function simpanDanCetakForm2(paketData) {
         </tr>
         <tr>
           <td colspan="2" style="height: 75px; vertical-align: top; padding: 8px;">
-            <table width="100%" style="border-collapse: collapse;">
-              <tr>
-                <td style="border:none;"></td>
-                <td width="250px" class="text-center" style="border:none;">
-                  <span class="fw-bold">Tanda tangan Manajer Persetujuan</span><br><br><br><br>
-                  <u>( .................................... )</u>
-                </td>
-              </tr>
-            </table>
+            <div style="font-weight: bold; text-align: left; padding-top: 35px;">Tanda tangan Komisi persetujuan</div>
           </td>
         </tr>
       </table>
@@ -940,13 +939,20 @@ function simpanDanCetakForm2(paketData) {
     // ==========================================
     var urlLinkPdf = filePdf.getUrl();
     
-    filePdf.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    var sharingWarning = '';
+    try {
+      filePdf.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (sharingError) {
+      sharingWarning = ' Catatan: akses link publik tidak dapat diubah oleh kebijakan Drive.';
+      console.error(sharingError);
+    }
     if (!workerMode) sheet.getRange(barisTerakhir, 10).setValue(urlLinkPdf);
     
     return {
       status: "Sukses",
-      pesan: "✔ Data inspeksi berhasil direkam ke database, dan berkas PDF resmi untuk " + paketData.nama + " telah terbit dengan warna abu-abu permanen!",
-      pdfUrl: urlLinkPdf
+      pesan: "✔ Data inspeksi berhasil direkam ke database, dan berkas PDF resmi untuk " + paketData.nama + " telah terbit dengan warna abu-abu permanen!" + sharingWarning,
+      pdfUrl: urlLinkPdf,
+      fileId: filePdf.getId()
     };
 
   } catch (error) {
@@ -1239,13 +1245,20 @@ function simpanDanCetakForm3(paketData) {
 
     var urlLinkPdf = filePdf.getUrl();
     
-    filePdf.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    var sharingWarning = '';
+    try {
+      filePdf.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    } catch (sharingError) {
+      sharingWarning = ' Catatan: akses link publik tidak dapat diubah oleh kebijakan Drive.';
+      console.error(sharingError);
+    }
     if (!workerMode) sheet.getRange(barisTerakhir, 7).setValue(urlLinkPdf);
     
     return {
       status: "Sukses",
-      pesan: "✔ Data Form 3 Berhasil disimpan! PDF telah tersimpan di folder PDF_DOKUMEN_APPOLI/Form 3 - Pendataan Lahan",
-      pdfUrl: urlLinkPdf
+      pesan: "✔ Data Form 3 Berhasil disimpan! PDF telah tersimpan di folder PDF_DOKUMEN_APPOLI/Form 3 - Pendataan Lahan" + sharingWarning,
+      pdfUrl: urlLinkPdf,
+      fileId: filePdf.getId()
     };
 
   } catch (error) {
@@ -1265,18 +1278,9 @@ function simpanDanCetakForm3(paketData) {
  * Mengamankan agar folder tidak duplikat jika dijalankan berkali-kali.
  */
 function dapatkanFolderTujuan(namaSubFolder) {
-  var namaFolderUtama = "PDF_DOKUMEN_APPOLI";
-  var folderUtama;
-  var cekUtama = DriveApp.getFoldersByName(namaFolderUtama);
+  var folderUtama = DriveApp.getFolderById("197i0LI4VXW8WG9fbFlcExAyQrJGwXhbL");
   
-  // 1. Cek atau Buat Folder Utama
-  if (cekUtama.hasNext()) {
-    folderUtama = cekUtama.next();
-  } else {
-    folderUtama = DriveApp.createFolder(namaFolderUtama);
-  }
-  
-  // 2. Cek atau Buat Sub-Folder Spesifik Form
+  // Buat atau gunakan sub-folder form di folder media utama.
   var subFolder;
   var cekSub = folderUtama.getFoldersByName(namaSubFolder);
   if (cekSub.hasNext()) {
@@ -1286,6 +1290,11 @@ function dapatkanFolderTujuan(namaSubFolder) {
   }
   
   return subFolder;
+}
+
+function otorisasiDriveAppoli() {
+  var folderUtama = DriveApp.getFolderById("197i0LI4VXW8WG9fbFlcExAyQrJGwXhbL");
+  Logger.log("Akses Drive APPOLI berhasil: " + folderUtama.getName());
 }
 
 function buatDanSimpanPDF(htmlContent, namaFile) {

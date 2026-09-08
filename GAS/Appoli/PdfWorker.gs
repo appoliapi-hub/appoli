@@ -25,6 +25,34 @@ function doPost(event) {
       return pdfWorkerJson({ status: 'Gagal', pesan: 'Unauthorized.' });
     }
 
+    if (payload.action === 'deletePdf') {
+      var deletedFileId = String(payload.fileId || '');
+      var deletedFileName = String(payload.fileName || '');
+      var deletedCount = 0;
+      if (deletedFileId) {
+        DriveApp.getFileById(deletedFileId).setTrashed(true);
+        deletedCount = 1;
+      } else if (deletedFileName) {
+        deletedCount = pdfWorkerTrashFilesByName(deletedFileName);
+      }
+      if (!deletedCount) throw new Error('File PDF tidak ditemukan di Google Drive.');
+      return pdfWorkerJson({ status: 'Sukses', fileId: deletedFileId, deletedCount: deletedCount });
+    }
+
+    if (payload.action === 'downloadPdf') {
+      var downloadFileId = String(payload.fileId || '');
+      if (!downloadFileId) throw new Error('fileId PDF wajib diisi.');
+      var downloadFile = DriveApp.getFileById(downloadFileId);
+      var downloadBlob = downloadFile.getBlob();
+      return pdfWorkerJson({
+        status: 'Sukses',
+        fileId: downloadFileId,
+        fileName: downloadFile.getName(),
+        contentType: downloadBlob.getContentType(),
+        data: Utilities.base64Encode(downloadBlob.getBytes())
+      });
+    }
+
     var collection = String(payload.collection || '');
     var documentId = String(payload.documentId || '');
     var data = payload.data || {};
@@ -33,15 +61,21 @@ function doPost(event) {
     }
 
     var result = pdfWorkerGenerate(collection, documentId, data);
-    pdfWorkerCallback({
-      status: 'ready',
-      collection: collection,
-      documentId: documentId,
-      pdfUrl: result.pdfUrl,
-      fileId: result.fileId,
-      fileName: result.fileName
-    });
-    return pdfWorkerJson({ status: 'Sukses', pdfUrl: result.pdfUrl, fileId: result.fileId });
+    var callbackError = '';
+    try {
+      pdfWorkerCallback({
+        status: 'ready',
+        collection: collection,
+        documentId: documentId,
+        pdfUrl: result.pdfUrl,
+        fileId: result.fileId,
+        fileName: result.fileName
+      });
+    } catch (error) {
+      callbackError = String(error && error.message || error);
+      console.error(callbackError);
+    }
+    return pdfWorkerJson({ status: 'Sukses', pdfUrl: result.pdfUrl, fileId: result.fileId, callbackError: callbackError });
   } catch (error) {
     try {
       pdfWorkerCallback({
@@ -75,7 +109,7 @@ function pdfWorkerGenerate(collection, documentId, source) {
   }
   return {
     pdfUrl: result.pdfUrl,
-    fileId: pdfWorkerFileId(result.pdfUrl),
+    fileId: result.fileId || pdfWorkerFileId(result.pdfUrl),
     fileName: collection + '-' + documentId + '.pdf'
   };
 }
@@ -199,6 +233,23 @@ function pdfWorkerFileId(url) {
   return match ? match[0] : '';
 }
 
+function pdfWorkerTrashFilesByName(fileName) {
+  var rootFolder = DriveApp.getFolderById('197i0LI4VXW8WG9fbFlcExAyQrJGwXhbL');
+  var folders = [rootFolder];
+  var deletedCount = 0;
+  while (folders.length) {
+    var folder = folders.pop();
+    var files = folder.getFilesByName(fileName);
+    while (files.hasNext()) {
+      files.next().setTrashed(true);
+      deletedCount++;
+    }
+    var subFolders = folder.getFolders();
+    while (subFolders.hasNext()) folders.push(subFolders.next());
+  }
+  return deletedCount;
+}
+
 function pdfWorkerCallback(result) {
   var properties = PropertiesService.getScriptProperties();
   var callbackUrl = properties.getProperty('APPOLI_CALLBACK_URL');
@@ -212,7 +263,7 @@ function pdfWorkerCallback(result) {
     muteHttpExceptions: true
   });
   if (response.getResponseCode() < 200 || response.getResponseCode() >= 300) {
-    throw new Error('Callback PDF gagal: HTTP ' + response.getResponseCode());
+    throw new Error('Callback PDF gagal: HTTP ' + response.getResponseCode() + ' - ' + response.getContentText());
   }
 }
 
