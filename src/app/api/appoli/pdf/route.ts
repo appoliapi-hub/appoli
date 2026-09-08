@@ -268,7 +268,9 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Gagal membuat PDF Appoli:', error);
-    return NextResponse.json({ error: 'PDF gagal dibuat.', code: pdfErrorCode(error) }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'PDF gagal dibuat.';
+    const code = pdfErrorCode(error);
+    return NextResponse.json({ error: message, code }, { status: code === 'PDF_STORAGE_UNAVAILABLE' ? 502 : 500 });
   }
 }
 
