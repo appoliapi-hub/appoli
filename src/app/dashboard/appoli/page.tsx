@@ -10,6 +10,7 @@ import PetaniFormModal from './petani-form-modal';
 import InspeksiIcsPreview from './inspeksi-ics/inspeksi-ics-preview';
 import DataLahanPreview from './data-lahan/data-lahan-preview';
 import AnalisaUsahaPreview from './analisa-usaha/analisa-usaha-preview';
+import { useNotifications } from '../notification-provider';
 
 type Lahan = {
   luasLahan?: string;
@@ -112,6 +113,7 @@ function normalizeLabel(value?: string): string {
 }
 
 export default function DashboardAppoli() {
+  const { notify, confirm } = useNotifications();
   const [petani, setPetani] = useState<Petani[]>([]);
   const [analisaUsaha, setAnalisaUsaha] = useState<AnalisaUsaha[]>([]);
   const [inspections, setInspections] = useState<Inspection[]>([]);
@@ -168,7 +170,7 @@ export default function DashboardAppoli() {
   }, []);
 
   const removeRecord = async (collectionName: string, id: string, label: string, fileId = '') => {
-    if (!window.confirm(`Hapus ${label} ini? Data yang dihapus tidak dapat dikembalikan.`)) return;
+    if (!(await confirm(`Hapus ${label} ini? Data yang dihapus tidak dapat dikembalikan.`))) return;
     const deleteKey = `${collectionName}:${id}`;
     if (deletingRecordKey) return;
     setDeletingRecordKey(deleteKey);
@@ -210,7 +212,7 @@ export default function DashboardAppoli() {
     try {
       await downloadAppoliPdf('analisaUsaha', id);
     } catch (downloadError) {
-      alert(downloadError instanceof Error ? downloadError.message : 'PDF tidak dapat diunduh.');
+      notify(downloadError instanceof Error ? downloadError.message : 'PDF tidak dapat diunduh.', 'error');
     } finally {
       setDownloadingAnalisaId('');
     }
@@ -604,7 +606,7 @@ export default function DashboardAppoli() {
               </button>
               <button
                 type="button"
-                onClick={() => void openAppoliPdf('analisaUsaha', selectedAnalisa.id).catch((error: unknown) => alert(error instanceof Error ? error.message : 'PDF tidak dapat dibuat.'))}
+                onClick={() => void openAppoliPdf('analisaUsaha', selectedAnalisa.id).catch((error: unknown) => notify(error instanceof Error ? error.message : 'PDF tidak dapat dibuat.', 'error'))}
                 className="rounded-lg border border-sky-200 bg-sky-600 px-4 py-2 text-sm font-medium text-white hover:bg-sky-700"
               >
                 Cetak PDF

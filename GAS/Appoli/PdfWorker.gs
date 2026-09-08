@@ -117,6 +117,8 @@ function pdfWorkerGenerate(collection, documentId, source) {
 function pdfWorkerAnalisa(source) {
   var output = pdfWorkerCopy(source);
   var rows = source.formData || {};
+  output.namaPetugas = source.namaPetugas || source.petugas || '';
+  output.petugasPendata = source.namaPetugas || source.petugas || '';
   var groups = {
     benih: 'a1', pupuk_padat: 'a2_padat', pupuk_cair: 'a2_cair',
     pupuk_urea: 'a3_urea', pupuk_tsp: 'a3_tsp', pupuk_phonska: 'a3_phonska',
@@ -225,6 +227,8 @@ function pdfWorkerCopy(source) {
   output._worker = true;
   output.idPetani = source.idPetani || source.petaniId || '';
   output.nama = source.nama || source.namaPetani || '';
+  output.namaPetugas = source.namaPetugas || source.petugas || '';
+  output.petugasPendata = source.namaPetugas || source.petugas || '';
   return output;
 }
 

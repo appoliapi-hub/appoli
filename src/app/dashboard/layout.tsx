@@ -23,6 +23,7 @@ import { auth } from '../../../lib/firebase';
 import { hasMenuPermission, MENU_CONFIG, getUserProfileByUid, getVisibleMenuKeys, isAdminUser, type MenuKey, type UserAccessProfile } from '../../../lib/user-access';
 import logoAppoli from '../../../public/images/logo-appoli.png';
 import AiAssistant from './ai-assistant';
+import NotificationProvider from './notification-provider';
 
 const routeMenuKeys: Array<[string, MenuKey]> = [
   ['/dashboard/appoli/profil-petani', 'profil-petani'],
@@ -138,7 +139,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden print:block print:h-auto print:overflow-visible">
+    <NotificationProvider>
+      <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden print:block print:h-auto print:overflow-visible">
       
       {/* Mobile Overlay */}
       {isMobileMenuOpen && (
@@ -265,6 +267,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
       <AiAssistant />
 
-    </div>
+      </div>
+    </NotificationProvider>
   );
 }

@@ -21,16 +21,32 @@ export default function SaveLoadingOverlay({ open }: { open: boolean }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-6" role="status" aria-live="polite" aria-label="Menyimpan data">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-8 text-center shadow-2xl">
-        <Image src="/images/logo-appoli.png" alt="Logo APPOLI" width={80} height={80} className="mx-auto h-20 w-20 object-contain" />
-        <Loader2 className="mx-auto mt-5 h-7 w-7 animate-spin text-emerald-600" />
-        <p className="mt-3 text-base font-bold text-slate-900">Menyimpan data...</p>
-        <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-200" role="progressbar" aria-label="Progres penyimpanan" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
-          <div className="h-full rounded-full bg-emerald-600 transition-all duration-500" style={{ width: `${progress}%` }} />
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/35 p-6 backdrop-blur-[2px]" role="status" aria-live="polite" aria-label="Menyimpan data">
+      <div className="w-full max-w-sm overflow-hidden rounded-[28px] border border-white/40 bg-white/90 p-6 text-center shadow-[0_28px_80px_rgba(15,23,42,0.22)] ring-1 ring-slate-200/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-100 via-teal-50 to-emerald-50 shadow-inner shadow-emerald-200/70">
+          <Image src="/images/logo-appoli.png" alt="Logo APPOLI" width={74} height={74} className="h-14 w-14 object-contain" />
         </div>
-        <p className="mt-2 text-sm font-bold text-emerald-700">{progress}%</p>
-        <p className="mt-1 text-sm text-slate-500">Mohon tunggu, data sedang diproses.</p>
+
+        <div className="mt-5 flex items-center justify-center gap-2">
+          <Loader2 className="h-5 w-5 animate-spin text-emerald-600" />
+          <p className="text-base font-bold tracking-tight text-slate-900">Menyimpan data...</p>
+        </div>
+
+        <div className="mt-5 rounded-2xl bg-slate-100 p-2 shadow-inner shadow-slate-200/70">
+          <div className="h-2.5 overflow-hidden rounded-full bg-slate-200/80" role="progressbar" aria-label="Progres penyimpanan" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 transition-all duration-500 ease-out"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+          <span>Progress</span>
+          <span className="text-emerald-700">{progress}%</span>
+        </div>
+
+        <p className="mt-4 text-sm leading-relaxed text-slate-600">Mohon tunggu, data sedang diproses dan disimpan ke sistem.</p>
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import { createAppoliPdf, downloadAppoliPdf, openAppoliPdf } from '../../../../.
 import { useMenuPermission } from '../../../../../lib/use-menu-permission';
 import AnalisaUsahaPreview from './analisa-usaha-preview';
 import SaveLoadingOverlay from '../save-loading-overlay';
+import { useNotifications } from '../../notification-provider';
 
 interface RowData {
   waktu: string;
@@ -38,6 +39,7 @@ const initialRowState: RowData = {
 };
 
 export default function AnalisaUsahaPage() {
+  const { notify } = useNotifications();
   const canWrite = useMenuPermission('analisa-usaha', 'write');
   const [petaniOptions, setPetaniOptions] = useState<PetaniOption[]>([]);
   const [selectedPetani, setSelectedPetani] = useState('');
@@ -242,12 +244,12 @@ export default function AnalisaUsahaPage() {
     e.preventDefault();
 
     if (!canWrite) {
-      alert('Anda tidak memiliki izin tulis untuk Analisa Usaha.');
+      notify('Anda tidak memiliki izin tulis untuk Analisa Usaha.', 'error');
       return;
     }
 
     if (!selectedPetani) {
-      alert('Pilih petani terlebih dahulu sebelum melihat preview PDF.');
+      notify('Pilih petani terlebih dahulu sebelum melihat preview PDF.', 'info');
       return;
     }
 
@@ -267,13 +269,13 @@ export default function AnalisaUsahaPage() {
       setFormData((current) => Object.fromEntries(Object.keys(current).map((key) => [key, { ...initialRowState }])) as FormState);
       setSavedRecordId('');
       setShowPreviewModal(false);
-      alert('Analisa usaha berhasil disimpan.');
+      notify('Analisa usaha berhasil disimpan.', 'success');
     } catch (error) {
       console.error('Gagal menyimpan analisa usaha:', error);
       const message = error instanceof Error ? error.message : '';
-      alert(message.includes('DriveApp')
+      notify(message.includes('DriveApp')
         ? 'Data sudah tersimpan, tetapi PDF belum dibuat. Silakan coba lagi.'
-        : 'Data gagal disimpan. Periksa koneksi dan hak akses.');
+        : 'Data gagal disimpan. Periksa koneksi dan hak akses.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -282,12 +284,12 @@ export default function AnalisaUsahaPage() {
   const handlePrintPdf = async () => {
     if (!savedRecordId) return;
     try { await openAppoliPdf('analisaUsaha', savedRecordId); }
-    catch (error) { alert(error instanceof Error ? error.message : 'PDF tidak dapat dibuat.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'PDF tidak dapat dibuat.', 'error'); }
   };
   const handleDownloadPdf = async () => {
     if (!savedRecordId) return;
     try { await downloadAppoliPdf('analisaUsaha', savedRecordId); }
-    catch (error) { alert(error instanceof Error ? error.message : 'PDF tidak dapat diunduh.'); }
+    catch (error) { notify(error instanceof Error ? error.message : 'PDF tidak dapat diunduh.', 'error'); }
   };
 
   return (

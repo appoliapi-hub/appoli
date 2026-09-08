@@ -404,7 +404,7 @@ function simpanDanCetakForm1(data) {
             </td>
             <td width="50%" align="center" valign="top" style="font-weight: bold; color: #333;">
               Petugas Pendata<br><br><br><br><br><br>
-              (                              )
+              ( <span style="text-decoration: underline;">${vText(data.namaPetugas || data.petugasPendata || data.petugas || '')}</span> )
             </td>
           </tr>
         </table>
