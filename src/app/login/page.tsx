@@ -74,7 +74,7 @@ export default function LoginPage() {
       <section className="relative w-full max-w-md rounded-3xl border border-slate-200/80 bg-white p-7 shadow-xl shadow-slate-900/5 sm:p-10">
         <div className="mb-8 flex flex-col items-center text-center">
           <Image src={logoAppoli} alt="Logo APPOLI - Aliansi Petani Padi Organik Boyolali" preload className="h-36 w-auto object-contain sm:h-40" />
-          <p className="mt-3 text-sm font-medium text-slate-500">Sistem Informasi APPOLI</p>
+          <p className="mt-3 text-sm font-medium text-slate-500">Internal Control System APPOLI</p>
         </div>
 
         {error && (
