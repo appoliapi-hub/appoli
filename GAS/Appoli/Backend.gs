@@ -422,9 +422,9 @@ function simpanDanCetakForm1(data) {
     // Penamaan file yang aman dan rapi
     var namaFilePembersih = "Form1_Analisa_" + data.nama.replace(/\s+/g, '_') + "_" + data.idPetani + ".pdf";
     blobPdf.setName(namaFilePembersih);
-    
     // Panggil fungsi pembantu untuk meletakkan file ke sub-folder spesifik Form 1
     var folderTujuan = dapatkanFolderTujuan("Form 1 - Pendaftaran Petani");
+    pdfWorkerTrashFilesByName(namaFilePembersih);
     var filePdf = folderTujuan.createFile(blobPdf);
     var urlLinkPdf = filePdf.getUrl();
     
@@ -948,6 +948,7 @@ function simpanDanCetakForm2(paketData) {
     
     // Panggil fungsi pembantu untuk mendapatkan folder "Form 2 - Inspeksi Internal"
     var folderTujuan = dapatkanFolderTujuan("Form 2 - Inspeksi Internal");
+    pdfWorkerTrashFilesByName(namaFilePembersih);
     
     // Simpan file PDF langsung ke dalam folder tujuan tersebut
     var filePdf = folderTujuan.createFile(blobPdf);
@@ -1256,6 +1257,7 @@ function simpanDanCetakForm3(paketData) {
     
 // Panggil fungsi pembantu untuk mendapatkan folder "Form 3 - Pendataan Lahan"
     var folderTujuan = dapatkanFolderTujuan("Form 3 - Pendataan Lahan");
+    pdfWorkerTrashFilesByName(namaFilePembersih);
     
     // Simpan file PDF langsung ke dalam folder tujuan tersebut
     var filePdf = folderTujuan.createFile(blobPdf);

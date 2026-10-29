@@ -60,22 +60,28 @@ function doPost(event) {
       throw new Error('collection atau documentId tidak valid.');
     }
 
-    var result = pdfWorkerGenerate(collection, documentId, data);
-    var callbackError = '';
+    var lock = LockService.getScriptLock();
+    lock.waitLock(30000);
     try {
-      pdfWorkerCallback({
-        status: 'ready',
-        collection: collection,
-        documentId: documentId,
-        pdfUrl: result.pdfUrl,
-        fileId: result.fileId,
-        fileName: result.fileName
-      });
-    } catch (error) {
-      callbackError = String(error && error.message || error);
-      console.error(callbackError);
+      var result = pdfWorkerGenerate(collection, documentId, data);
+      var callbackError = '';
+      try {
+        pdfWorkerCallback({
+          status: 'ready',
+          collection: collection,
+          documentId: documentId,
+          pdfUrl: result.pdfUrl,
+          fileId: result.fileId,
+          fileName: result.fileName
+        });
+      } catch (error) {
+        callbackError = String(error && error.message || error);
+        console.error(callbackError);
+      }
+      return pdfWorkerJson({ status: 'Sukses', pdfUrl: result.pdfUrl, fileId: result.fileId, callbackError: callbackError });
+    } finally {
+      lock.releaseLock();
     }
-    return pdfWorkerJson({ status: 'Sukses', pdfUrl: result.pdfUrl, fileId: result.fileId, callbackError: callbackError });
   } catch (error) {
     try {
       pdfWorkerCallback({

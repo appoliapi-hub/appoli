@@ -128,6 +128,7 @@ export default function DashboardAppoli() {
   const [selectedLandSurvey, setSelectedLandSurvey] = useState<LandSurvey | null>(null);
   const [analisaPage, setAnalisaPage] = useState(1);
   const [downloadingAnalisaId, setDownloadingAnalisaId] = useState('');
+  const [downloadingRecordKey, setDownloadingRecordKey] = useState('');
   const [deletingRecordKey, setDeletingRecordKey] = useState('');
   const canWritePetani = useMenuPermission('profil-petani', 'write');
   const canWriteAnalisa = useMenuPermission('analisa-usaha', 'write');
@@ -215,6 +216,19 @@ export default function DashboardAppoli() {
       notify(downloadError instanceof Error ? downloadError.message : 'PDF tidak dapat diunduh.', 'error');
     } finally {
       setDownloadingAnalisaId('');
+    }
+  };
+
+  const downloadRecordPdf = async (collectionName: AppoliPdfCollection, id: string) => {
+    const downloadKey = `${collectionName}:${id}`;
+    if (downloadingRecordKey) return;
+    setDownloadingRecordKey(downloadKey);
+    try {
+      await downloadAppoliPdf(collectionName, id);
+    } catch (downloadError) {
+      notify(downloadError instanceof Error ? downloadError.message : 'PDF tidak dapat diunduh.', 'error');
+    } finally {
+      setDownloadingRecordKey('');
     }
   };
 
@@ -469,6 +483,7 @@ export default function DashboardAppoli() {
           ['Nama Petugas', (record) => String(record.inspektur || '-')],
         ]}
         onPreview={setSelectedInspection}
+        onDownload={(id) => void downloadRecordPdf('inspeksiICS', id)}
         onDelete={(id, record) => removeRecord('inspeksiICS', id, 'inspeksi ICS', String(record.pdf?.fileId || ''))}
       />
 
@@ -483,6 +498,7 @@ export default function DashboardAppoli() {
           ['Nama Petugas', (record) => String(record.namaPetugas || '-')],
         ]}
         onPreview={setSelectedLandSurvey}
+        onDownload={(id) => void downloadRecordPdf('dataLahan', id)}
         onDelete={(id, record) => removeRecord('dataLahan', id, 'data lahan', String(record.pdf?.fileId || ''))}
       />
       </div>
@@ -627,12 +643,12 @@ export default function DashboardAppoli() {
 }
 
 type RecordRow = { id: string; pdf?: { fileId?: string } } & Record<string, unknown>;
-function RecordSection({ title, icon, empty, records, columns, onPreview, onDelete }: { title: string; icon: React.ReactNode; empty: string; records: RecordRow[]; columns: [string, (record: RecordRow) => string][]; onPreview: (record: RecordRow) => void; onDelete: (id: string, record: RecordRow) => void }) {
+function RecordSection({ title, icon, empty, records, columns, onPreview, onDownload, onDelete }: { title: string; icon: React.ReactNode; empty: string; records: RecordRow[]; columns: [string, (record: RecordRow) => string][]; onPreview: (record: RecordRow) => void; onDownload: (id: string) => void; onDelete: (id: string, record: RecordRow) => void }) {
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(records.length / 5));
   const currentPage = Math.min(page, pageCount);
   const visibleRecords = records.slice((currentPage - 1) * 5, currentPage * 5);
-  return <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 p-5">{icon}<h2 className="text-lg font-bold text-slate-800">{title}</h2><span className="ml-auto rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-600">{records.length} data</span></div>{records.length === 0 ? <p className="p-6 text-sm text-slate-500">{empty}</p> : <div className="overflow-x-auto"><table className="w-full text-left text-sm text-slate-600"><thead className="border-b border-slate-200 bg-white text-[11px] uppercase tracking-wider text-slate-500"><tr>{columns.map(([label]) => <th key={label} className="px-5 py-3">{label}</th>)}<th className="px-5 py-3 text-center">Aksi</th></tr></thead><tbody className="divide-y divide-slate-100">{visibleRecords.map((record) => <tr key={record.id} className="hover:bg-slate-50">{columns.map(([label, value]) => <td key={label} className="px-5 py-3">{value(record)}</td>)}<td className="px-5 py-3"><div className="flex justify-center gap-2"><button type="button" onClick={() => onPreview(record)} title="Lihat preview" className="rounded-md p-1.5 text-blue-600 hover:bg-blue-50"><Eye className="h-4 w-4" /></button><button type="button" onClick={() => onDelete(record.id, record)} title="Hapus data dan PDF Drive" className="rounded-md p-1.5 text-rose-600 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button></div></td></tr>)}</tbody></table><Pagination page={currentPage} pageCount={pageCount} total={records.length} onPageChange={setPage} /></div>}</section>;
+  return <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div className="flex items-center gap-2 border-b border-slate-200 bg-slate-50 p-5">{icon}<h2 className="text-lg font-bold text-slate-800">{title}</h2><span className="ml-auto rounded-full bg-slate-200 px-3 py-1 text-xs font-bold text-slate-600">{records.length} data</span></div>{records.length === 0 ? <p className="p-6 text-sm text-slate-500">{empty}</p> : <div className="overflow-x-auto"><table className="w-full text-left text-sm text-slate-600"><thead className="border-b border-slate-200 bg-white text-[11px] uppercase tracking-wider text-slate-500"><tr>{columns.map(([label]) => <th key={label} className="px-5 py-3">{label}</th>)}<th className="px-5 py-3 text-center">Aksi</th></tr></thead><tbody className="divide-y divide-slate-100">{visibleRecords.map((record) => <tr key={record.id} className="hover:bg-slate-50">{columns.map(([label, value]) => <td key={label} className="px-5 py-3">{value(record)}</td>)}<td className="px-5 py-3">  <div className="flex justify-center gap-2"><button type="button" onClick={() => onPreview(record)} title="Lihat preview" aria-label={`Lihat preview ${title}`} className="rounded-md p-1.5 text-blue-600 hover:bg-blue-50"><Eye className="h-4 w-4" /></button><button type="button" onClick={() => onDownload(record.id)} title="Download PDF" aria-label={`Download PDF ${title}`} className="rounded-md p-1.5 text-emerald-600 hover:bg-emerald-50"><Download className="h-4 w-4" /></button><button type="button" onClick={() => onDelete(record.id, record)} title="Hapus data dan PDF Drive" aria-label={`Hapus ${title}`} className="rounded-md p-1.5 text-rose-600 hover:bg-rose-50"><Trash2 className="h-4 w-4" /></button></div></td></tr>)}</tbody></table><Pagination page={currentPage} pageCount={pageCount} total={records.length} onPageChange={setPage} /></div>}</section>;
 }
 
 function Pagination({ page, pageCount, total, onPageChange }: { page: number; pageCount: number; total: number; onPageChange: (page: number) => void }) { return <div className="flex items-center justify-between border-t border-slate-200 px-5 py-3 text-xs text-slate-500"><span>Menampilkan maksimal 5 dari {total} data</span><div className="flex items-center gap-2"><button type="button" disabled={page <= 1} onClick={() => onPageChange(page - 1)} className="rounded-md border border-slate-300 px-3 py-1.5 font-semibold disabled:cursor-not-allowed disabled:opacity-40">Prev</button><span>Halaman {page} / {pageCount}</span><button type="button" disabled={page >= pageCount} onClick={() => onPageChange(page + 1)} className="rounded-md border border-slate-300 px-3 py-1.5 font-semibold disabled:cursor-not-allowed disabled:opacity-40">Next</button></div></div>; }
