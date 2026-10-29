@@ -9,6 +9,7 @@ export const runtime = 'nodejs';
 export const maxDuration = 120; // ✅ FIX: Increased from 60 to 120s for complex multi-page PDFs (Inspeksi ICS)
 
 const allowedCollections = new Set(['analisaUsaha', 'inspeksiICS', 'dataLahan']);
+const pdfTemplateVersion = '2026-10-29-analisa-identity-v2';
 const gasPdfUrl = process.env.APPOLI_GAS_PDF_URL;
 const escapeHtml = (value: unknown) => String(value ?? '-').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' }[character] || character));
 const money = (value: unknown) => `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
@@ -93,7 +94,7 @@ async function createPdfWithGas(collectionName: string, id: string, data: Record
   }
   if (result.data) {
     const { adminDb } = getAdminServices();
-    await adminDb.collection(collectionName).doc(id).set({ pdf: { status: 'ready', url: result.pdfUrl || '', fileId: result.fileId, fileName: `${collectionName}-${id}.pdf`, error: '', updatedAt: new Date() } }, { merge: true });
+    await adminDb.collection(collectionName).doc(id).set({ pdf: { status: 'ready', url: result.pdfUrl || '', fileId: result.fileId, fileName: `${collectionName}-${id}.pdf`, templateVersion: pdfTemplateVersion, error: '', updatedAt: new Date() } }, { merge: true });
     return Buffer.from(result.data, 'base64');
   }
   const driveResponse = await fetch(`https://drive.usercontent.google.com/download?id=${encodeURIComponent(result.fileId)}&export=download&confirm=t`, { cache: 'no-store' });
@@ -105,6 +106,7 @@ async function createPdfWithGas(collectionName: string, id: string, data: Record
       url: result.pdfUrl || '',
       fileId: result.fileId,
       fileName: `${collectionName}-${id}.pdf`,
+      templateVersion: pdfTemplateVersion,
       error: '',
       updatedAt: new Date(),
     },
@@ -163,7 +165,7 @@ function identity(data: Record<string, unknown>) {
 }
 
 function analisaIdentity(data: Record<string, unknown>) {
-  return `<table class="identity"><tr><td>Nama Petani</td><td>:</td><td>${escapeHtml(data.namaPetani)}</td></tr><tr><td>Kode Petani</td><td>:</td><td>${escapeHtml(`APL / ${data.petaniId || data.idPetani}`)}</td></tr><tr><td>Kelompok tani</td><td>:</td><td>${escapeHtml(data.kelompokTani)}</td></tr><tr><td>Luas lahan</td><td>:</td><td>${escapeHtml(data.luasLahan)} m²</td></tr><tr><td>Varietas</td><td>:</td><td>${escapeHtml(data.varietas)}</td></tr><tr><td>Musim Tanam</td><td>:</td><td>${escapeHtml(data.musimTanam)}</td></tr></table>`;
+  return `<table class="identity"><tr><td>Nama Petani</td><td>:</td><td>${escapeHtml(data.namaPetani)}</td></tr><tr><td>Kode Petani</td><td>:</td><td>${escapeHtml(`APL / ${data.petaniId || data.idPetani}`)}</td></tr><tr><td>Kelompok tani</td><td>:</td><td>${escapeHtml(data.kelompokTani || data.kelompok)}</td></tr><tr><td>Luas lahan</td><td>:</td><td>${escapeHtml(data.luasLahan)} m²</td></tr><tr><td>Varietas</td><td>:</td><td>${escapeHtml(data.varietas)}</td></tr><tr><td>Musim Tanam</td><td>:</td><td>${escapeHtml(data.musimTanam || data.musim)}</td></tr></table>`;
 }
 
 function inspectionIdentity(data: Record<string, unknown>) {
@@ -176,6 +178,23 @@ function landIdentity(data: Record<string, unknown>) {
 
 function choiceOptions(selected: string, options: string[], symbol = 'O') {
   return options.map((option) => `${symbol} ${selected.toLowerCase() === option.toLowerCase() ? '[✓] ' : ''}${option}`).join(' &nbsp;&nbsp; ');
+}
+
+function inspectionChoice(selected: string, option: string) {
+  const aliases: Record<string, string[]> = {
+    'Baik': ['Baik', 'Sesuai'],
+    'Sebagian/diterima': ['Sebagian/diterima', 'Perlu perbaikan'],
+    'Menyetujui tanpa syarat': ['Menyetujui tanpa syarat', 'Sesuai'],
+    'Menyetujui dengan syarat': ['Menyetujui dengan syarat', 'Perlu perbaikan'],
+    'Menyetujui Tanpa Syarat': ['Menyetujui Tanpa Syarat', 'Disetujui'],
+    'Menyetujui Dengan Syarat': ['Menyetujui Dengan Syarat', 'Sanksi Syarat'],
+    'Tidak Dapat Disetujui': ['Tidak Dapat Disetujui', 'Ditolak'],
+  };
+  return (aliases[option] || [option]).some((alias) => selected.trim().toLowerCase() === alias.toLowerCase());
+}
+
+function inspectionChoiceOptions(selected: string, options: string[], symbol = 'O') {
+  return options.map((option) => `${symbol} ${inspectionChoice(selected, option) ? '[✓] ' : ''}${option}`).join(' &nbsp;&nbsp; ');
 }
 
 function analisaHtml(data: Record<string, unknown>) {
@@ -225,9 +244,9 @@ function inspeksiHtmlAppsScript(data: Record<string, unknown>) {
   const secondPage = `<table>${checkHeader('Kriteria / Aspek Pemeriksaan Kepatuhan Lapangan (Lanjutan)')}${checkRow('pola_organik')}</table><div class="section">Tindakan pasca panen dan pengolahan</div><table>${checkHeader('Aktivitas')}${checkRow('pasca_olah')}${checkRow('pasca_kemasan')}${checkRow('pasca_simpan')}</table><div class="section">Manajemen resiko</div><table><tr class="label"><td width="40%">Resiko kontaminasi</td><td width="10%">Rendah</td><td width="10%">Menengah</td><td width="10%">Tinggi</td><td width="30%">Keterangan</td></tr>${riskRow('sekitar')}${riskRow('aktivitas')}${riskRow('industri')}<tr><td colspan="5"><b>Langkah yang diambil untuk mengurangi resiko :</b><br>${escapeHtml((risks as Record<string, unknown>).langkahMitigasi)}</td></tr></table><table><tr><td class="label" colspan="2">Rekomendasi persetujuan inspektor</td></tr><tr><td colspan="2"><b>Pemenuhan kondisi sebelumnya :</b><br>O baik &nbsp;&nbsp; O sebagian/diterima &nbsp;&nbsp; O hilang/tidak diterima &nbsp;&nbsp; O tidak ada kondisi tahun sebelumnya</td></tr><tr><td colspan="2"><b>Pemenuhan tahun ini :</b><br>O menyetujui tanpa syarat &nbsp;&nbsp; O menyetujui dengan syarat &nbsp;&nbsp; O hilang /tidak diterima</td></tr><tr><td colspan="2" style="height:45px"><b>Persyaratan (tindakan perbaikan) atau penjelasan :</b><br>${escapeHtml(recommendation.syaratPenjelasan)}</td></tr><tr><td width="50%" class="center" style="height:75px"><b>Petani</b><div class="signature-space"></div><u>( ${escapeHtml(data.namaPetani)} )</u></td><td width="50%" class="center"><b>Internal Inspektor</b><div class="signature-space"></div><u>( .................................... )</u></td></tr></table><table><tr style="background:#333;color:#fff"><td colspan="2"><b>Kesepakatan Keputusan oleh Operator ICS</b></td></tr><tr><td colspan="2"><b>Pemenuhan tahun ini :</b><br>□ Menyetujui Tanpa Syarat &nbsp;&nbsp; □ Menyetujui Dengan Syarat &nbsp;&nbsp; □ Tidak Dapat Disetujui</td></tr><tr><td colspan="2" style="height:40px"><b>Persyaratan tambahan atau sanksi :</b><br>${escapeHtml(data.sanksiTambahan)}</td></tr><tr><td colspan="2" class="center" style="height:75px"><b>Tanda tangan Manajer Persetujuan</b><div class="signature-space"></div><u>( .................................... )</u></td></tr></table>`;
   const firstPageOutput = firstPage.replace('<tr><td class="label" colspan="4">Konservasi (sistem air, tanah,hutan, dsb)</td></tr>', '<tr><td class="label" colspan="4">Konservasi (sistem air, tanah,hutan, dsb)</td></tr>' + checkRow('lahan_konservasi'));
   const secondPageOutput = secondPage
-    .replace(/O baik[\s\S]*?O tidak ada kondisi tahun sebelumnya/, choiceOptions(String(recommendation.kondisiSebelum || ''), ['Baik', 'Sebagian/diterima', 'Hilang/tidak diterima', 'Tidak ada kondisi tahun sebelumnya']))
-    .replace(/O menyetujui tanpa syarat[\s\S]*?O hilang \/tidak diterima/, choiceOptions(String(recommendation.tahunIni || ''), ['Menyetujui tanpa syarat', 'Menyetujui dengan syarat', 'Hilang /tidak diterima']))
-    .replace(/□ Menyetujui Tanpa Syarat[\s\S]*?□ Tidak Dapat Disetujui/, choiceOptions(String(data.keputusan || ''), ['Menyetujui Tanpa Syarat', 'Menyetujui Dengan Syarat', 'Tidak Dapat Disetujui'], '□'))
+    .replace(/O baik[\s\S]*?O tidak ada kondisi tahun sebelumnya/, inspectionChoiceOptions(String(recommendation.kondisiSebelum || ''), ['Baik', 'Sebagian/diterima', 'Hilang/tidak diterima', 'Tidak ada kondisi tahun sebelumnya']))
+    .replace(/O menyetujui tanpa syarat[\s\S]*?O hilang \/tidak diterima/, inspectionChoiceOptions(String(recommendation.tahunIni || ''), ['Menyetujui tanpa syarat', 'Menyetujui dengan syarat', 'Hilang /tidak diterima']))
+    .replace(/□ Menyetujui Tanpa Syarat[\s\S]*?□ Tidak Dapat Disetujui/, inspectionChoiceOptions(String(data.keputusan || ''), ['Menyetujui Tanpa Syarat', 'Menyetujui Dengan Syarat', 'Tidak Dapat Disetujui'], '□'))
     .replace('class="center" style="height:75px"><b>Tanda tangan Manajer Persetujuan', 'style="height:75px;text-align:left;vertical-align:top"><b>Tanda tangan Komisi persetujuan')
     .replace('style="height:75px;text-align:left;vertical-align:top"><b>Tanda tangan Komisi persetujuan</b><div class="signature-space"></div><u>( .................................... )</u>', 'style="height:75px;text-align:left;vertical-align:bottom"><b>Tanda tangan Komisi persetujuan</b>')
     .replace(/^<table class="kop">[\s\S]*?<\/table>/, '');
@@ -258,12 +277,19 @@ export async function GET(request: NextRequest) {
     if (!snapshot.exists) return NextResponse.json({ error: 'Data tidak ditemukan.' }, { status: 404 });
     const data = snapshot.data() as Record<string, unknown>;
 
-    const storedPdfFile = storedPdfFileId(data.pdf);
-    if (storedPdfFile) {
+    const storedPdf = data.pdf as { templateVersion?: string } | undefined;
+    const storedPdfFile = storedPdfFileId(storedPdf);
+    const needsTemplateRefresh = collectionName === 'analisaUsaha' && storedPdf?.templateVersion !== pdfTemplateVersion;
+    if (storedPdfFile && !needsTemplateRefresh) {
       const pdf = await downloadStoredPdf(storedPdfFile);
       return new NextResponse(pdf, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${collectionName}-${id}.pdf"`, 'Cache-Control': 'no-store' } });
     }
-    
+
+    if (needsTemplateRefresh) {
+      const pdf = await createPdfWithGas(collectionName, id, data);
+      return new NextResponse(pdf, { headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="${collectionName}-${id}.pdf"`, 'Cache-Control': 'no-store' } });
+    }
+
     return NextResponse.json({ error: 'PDF untuk dokumen ini belum tersedia di Google Drive.' }, { status: 404 });
 
   } catch (error) {

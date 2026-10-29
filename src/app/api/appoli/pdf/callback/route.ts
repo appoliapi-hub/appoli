@@ -4,6 +4,7 @@ import { getAdminServices } from '../../../../../../lib/firebase-admin';
 export const runtime = 'nodejs';
 
 const allowedCollections = new Set(['analisaUsaha', 'inspeksiICS', 'dataLahan']);
+const pdfTemplateVersion = '2026-10-29-analisa-identity-v2';
 
 export async function POST(request: NextRequest) {
   const secret = process.env.APPOLI_CALLBACK_SECRET || '';
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
         url: body.pdfUrl || '',
         fileId: body.fileId || '',
         fileName: body.fileName || '',
+        templateVersion: pdfTemplateVersion,
         error: body.error || '',
         updatedAt: new Date(),
       },

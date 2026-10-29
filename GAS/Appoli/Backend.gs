@@ -512,6 +512,21 @@ function simpanDanCetakForm2(paketData) {
     function ambilCheck(nilaiKondisi, targetKondisi) {
       return (nilaiKondisi === targetKondisi) ? "✓" : "";
     }
+    function ambilPilihan(nilai, target) {
+      var aliases = {
+        "Baik": ["Baik", "Sesuai"],
+        "Sebagian/diterima": ["Sebagian/diterima", "Perlu perbaikan"],
+        "Menyetujui tanpa syarat": ["Menyetujui tanpa syarat", "Sesuai"],
+        "Menyetujui dengan syarat": ["Menyetujui dengan syarat", "Perlu perbaikan"],
+        "Menyetujui Tanpa Syarat": ["Menyetujui Tanpa Syarat", "Disetujui"],
+        "Menyetujui Dengan Syarat": ["Menyetujui Dengan Syarat", "Sanksi Syarat"],
+        "Tidak Dapat Disetujui": ["Tidak Dapat Disetujui", "Ditolak"]
+      };
+      var values = aliases[target] || [target];
+      return values.some(function(value) {
+        return String(nilai || "").trim().toLowerCase() === value.toLowerCase();
+      }) ? "✓" : "";
+    }
 
     var sb_baru = paketData.statusBidang === "Baru" ? "[✓]" : "[ ]";
     var sb_sama = paketData.statusBidang === "Sama" ? "[✓]" : "[ ]";
@@ -855,10 +870,10 @@ function simpanDanCetakForm2(paketData) {
           <td colspan="2">
             <span class="fw-bold">Pemenuhan kondisi sebelumnya :</span><br>
             <div style="margin: 5px 0; letter-spacing: 0.5px;">
-              [&nbsp;&nbsp;&nbsp;&nbsp;] Baik &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-              [&nbsp;&nbsp;&nbsp;&nbsp;] Sebagian/diterima &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-              [&nbsp;&nbsp;&nbsp;&nbsp;] Hilang/tidak diterima &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-              [&nbsp;&nbsp;&nbsp;&nbsp;] Tidak ada kondisi tahun sebelumnya
+              [${ambilPilihan(paketData.rekomendasi && paketData.rekomendasi.kondisiSebelum, "Baik")}] Baik &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+              [${ambilPilihan(paketData.rekomendasi && paketData.rekomendasi.kondisiSebelum, "Sebagian/diterima")}] Sebagian/diterima &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+              [${ambilPilihan(paketData.rekomendasi && paketData.rekomendasi.kondisiSebelum, "Hilang/tidak diterima")}] Hilang/tidak diterima &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+              [${ambilPilihan(paketData.rekomendasi && paketData.rekomendasi.kondisiSebelum, "Tidak ada kondisi tahun sebelumnya")}] Tidak ada kondisi tahun sebelumnya
             </div>
           </td>
         </tr>
@@ -866,9 +881,9 @@ function simpanDanCetakForm2(paketData) {
           <td colspan="2">
             <span class="fw-bold">Pemenuhan tahun ini :</span><br>
             <div style="margin: 5px 0; letter-spacing: 0.5px;">
-              [&nbsp;&nbsp;&nbsp;&nbsp;] Menyetujui tanpa syarat &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-              [&nbsp;&nbsp;&nbsp;&nbsp;] Menyetujui dengan syarat &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-              [&nbsp;&nbsp;&nbsp;&nbsp;] Hilang/tidak diterima
+              [${ambilPilihan(paketData.rekomendasi && paketData.rekomendasi.tahunIni, "Menyetujui tanpa syarat")}] Menyetujui tanpa syarat &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+              [${ambilPilihan(paketData.rekomendasi && paketData.rekomendasi.tahunIni, "Menyetujui dengan syarat")}] Menyetujui dengan syarat &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+              [${ambilPilihan(paketData.rekomendasi && paketData.rekomendasi.tahunIni, "Hilang/tidak diterima")}] Hilang/tidak diterima
             </div>
           </td>
         </tr>
@@ -897,9 +912,9 @@ function simpanDanCetakForm2(paketData) {
           <td colspan="2">
             <span class="fw-bold">Pemenuhan tahun ini :</span><br>
             <div style="margin: 5px 0; letter-spacing: 0.5px;">
-              [&nbsp;&nbsp;&nbsp;&nbsp;] Menyetujui Tanpa Syarat &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-              [&nbsp;&nbsp;&nbsp;&nbsp;] Menyetujui Dengan Syarat &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-              [&nbsp;&nbsp;&nbsp;&nbsp;] Tidak Dapat Disetujui
+              [${ambilPilihan(paketData.keputusan, "Menyetujui Tanpa Syarat")}] Menyetujui Tanpa Syarat &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+              [${ambilPilihan(paketData.keputusan, "Menyetujui Dengan Syarat")}] Menyetujui Dengan Syarat &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+              [${ambilPilihan(paketData.keputusan, "Tidak Dapat Disetujui")}] Tidak Dapat Disetujui
             </div>
           </td>
         </tr>

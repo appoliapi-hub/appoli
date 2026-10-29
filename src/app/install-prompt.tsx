@@ -11,7 +11,7 @@ interface InstallPromptEvent extends Event {
 export default function InstallPrompt() {
   const [installEvent, setInstallEvent] = useState<InstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
-  const [isIos, setIsIos] = useState(false);
+  const isIos = typeof navigator !== 'undefined' && /iphone|ipad|ipod/i.test(navigator.userAgent);
 
   useEffect(() => {
     const standalone = window.matchMedia('(display-mode: standalone)').matches ||
@@ -19,7 +19,6 @@ export default function InstallPrompt() {
     if (standalone) return;
 
     const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
-    setIsIos(ios);
     const dismissed = window.localStorage.getItem('appoli-install-dismissed');
     if (dismissed) return;
 
@@ -30,8 +29,11 @@ export default function InstallPrompt() {
     };
 
     window.addEventListener('beforeinstallprompt', handleInstallAvailable);
-    if (ios) setVisible(true);
-    return () => window.removeEventListener('beforeinstallprompt', handleInstallAvailable);
+    const iosVisibilityTimer = ios ? window.setTimeout(() => setVisible(true), 0) : undefined;
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleInstallAvailable);
+      if (iosVisibilityTimer !== undefined) window.clearTimeout(iosVisibilityTimer);
+    };
   }, []);
 
   if (!visible) return null;

@@ -117,6 +117,10 @@ function pdfWorkerGenerate(collection, documentId, source) {
 function pdfWorkerAnalisa(source) {
   var output = pdfWorkerCopy(source);
   var rows = source.formData || {};
+  // Firestore memakai nama field kelompokTani/musimTanam, sedangkan
+  // template Form 1 memakai kelompok/musim.
+  output.kelompok = source.kelompok || source.kelompokTani || '';
+  output.musim = source.musim || source.musimTanam || '';
   output.namaPetugas = source.namaPetugas || source.petugas || '';
   output.petugasPendata = source.namaPetugas || source.petugas || '';
   var groups = {

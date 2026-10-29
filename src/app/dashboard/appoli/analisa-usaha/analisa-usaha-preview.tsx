@@ -72,8 +72,6 @@ export default function AnalisaUsahaPreview({
   const subTotalB = ['lahan_persemaian', 'sebar_benih', 'daut_cabut', 'olah_lahan', 'tanam', 'penyulaman', 'perawatan_tanaman', 'pemupukan', 'penyemprotan', 'pengairan', 'panen_pengangkutan']
     .reduce((sum, key) => sum + getRowTotal(key), 0);
 
-  const subTotalC = getRowTotal('sewa_pajak');
-
   return (
     <div className="pdf-preview flex min-h-screen justify-center bg-slate-100 py-6 print:bg-white print:py-0">
       <style>{'@media print { @page { size: A4; margin: 0; } .pdf-preview, .pdf-preview * { box-shadow: none !important; } .pdf-preview .pdf-paper, .pdf-preview .pdf-paper * { border-color: #000 !important; } }'}</style>

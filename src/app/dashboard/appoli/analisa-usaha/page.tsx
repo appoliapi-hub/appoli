@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { FileText, Loader2 } from 'lucide-react';
 import { addDoc, collection, getDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
@@ -95,29 +95,6 @@ export default function AnalisaUsahaPage() {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    const currentUserName = auth.currentUser?.displayName || auth.currentUser?.email || '';
-    setNamaPetugas((prev) => prev || currentUserName);
-  }, []);
-
-  useEffect(() => {
-    if (!selectedPetani) {
-      setKodePetani('');
-      setKelompokTani('');
-      setLuasLahan('');
-      setVarietas('');
-      return;
-    }
-
-    const petani = petaniOptions.find((item) => item.idPetani === selectedPetani);
-    if (!petani) return;
-
-    setKodePetani(petani.idPetani || '');
-    setKelompokTani(petani.kelompokTani || '');
-    setLuasLahan(petani.lahanUtama?.luasLahan || '');
-    setVarietas(petani.lahanUtama?.komoditas || petani.komoditasUtama || '');
-  }, [selectedPetani, petaniOptions]);
-
   const [formData, setFormData] = useState<FormState>({
     benih: { ...initialRowState },
     pupuk_padat: { ...initialRowState },
@@ -162,51 +139,41 @@ export default function AnalisaUsahaPage() {
     return vol * hrg;
   };
 
-  const subTotalA = useMemo(() => {
-    const keysA = [
-      'benih',
-      'pupuk_padat',
-      'pupuk_cair',
-      'pupuk_urea',
-      'pupuk_tsp',
-      'pupuk_phonska',
-      'pestisida_organik',
-      'pestisida_kimia',
-    ];
-    return keysA.reduce((sum, key) => sum + getRowTotal(key), 0);
-  }, [formData]);
+  const subTotalA = [
+    'benih',
+    'pupuk_padat',
+    'pupuk_cair',
+    'pupuk_urea',
+    'pupuk_tsp',
+    'pupuk_phonska',
+    'pestisida_organik',
+    'pestisida_kimia',
+  ].reduce((sum, key) => sum + getRowTotal(key), 0);
 
-  const subTotalB = useMemo(() => {
-    const keysB = [
-      'lahan_persemaian',
-      'sebar_benih',
-      'daut_cabut',
-      'olah_lahan',
-      'tanam',
-      'penyulaman',
-      'perawatan_tanaman',
-      'pemupukan',
-      'penyemprotan',
-      'pengairan',
-      'panen_pengangkutan',
-    ];
-    return keysB.reduce((sum, key) => sum + getRowTotal(key), 0);
-  }, [formData]);
+  const subTotalB = [
+    'lahan_persemaian',
+    'sebar_benih',
+    'daut_cabut',
+    'olah_lahan',
+    'tanam',
+    'penyulaman',
+    'perawatan_tanaman',
+    'pemupukan',
+    'penyemprotan',
+    'pengairan',
+    'panen_pengangkutan',
+  ].reduce((sum, key) => sum + getRowTotal(key), 0);
 
-  const subTotalC = useMemo(() => getRowTotal('sewa_pajak'), [formData]);
-  const totalBiaya = useMemo(() => subTotalA + subTotalB + subTotalC, [subTotalA, subTotalB, subTotalC]);
-  const totalHasilProduksi = useMemo(() => getRowTotal('hasil_panen'), [formData]);
-  const labaRugiNetto = useMemo(() => totalHasilProduksi - totalBiaya, [totalHasilProduksi, totalBiaya]);
+  const subTotalC = getRowTotal('sewa_pajak');
+  const totalBiaya = subTotalA + subTotalB + subTotalC;
+  const totalHasilProduksi = getRowTotal('hasil_panen');
+  const labaRugiNetto = totalHasilProduksi - totalBiaya;
 
   const formatRupiah = (val: number) => new Intl.NumberFormat('id-ID').format(val);
 
-  const selectedPetaniData = useMemo(
-    () => petaniOptions.find((item) => item.idPetani === selectedPetani),
-    [petaniOptions, selectedPetani]
-  );
+  const selectedPetaniData = petaniOptions.find((item) => item.idPetani === selectedPetani);
 
-  const previewRows = useMemo(() => {
-    return Object.entries(formData)
+  const previewRows = Object.entries(formData)
       .map(([key, row]) => {
         const total = getRowTotal(key);
         const hasValue = !!(
@@ -238,7 +205,7 @@ export default function AnalisaUsahaPage() {
         total: number;
         keterangan: string;
       }>;
-  }, [formData]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -323,7 +290,15 @@ export default function AnalisaUsahaPage() {
             </label>
             <select
               value={selectedPetani}
-              onChange={(e) => setSelectedPetani(e.target.value)}
+              onChange={(e) => {
+                const selectedId = e.target.value;
+                const petani = petaniOptions.find((item) => item.idPetani === selectedId);
+                setSelectedPetani(selectedId);
+                setKodePetani(petani?.idPetani || '');
+                setKelompokTani(petani?.kelompokTani || '');
+                setLuasLahan(petani?.lahanUtama?.luasLahan || '');
+                setVarietas(petani?.lahanUtama?.komoditas || petani?.komoditasUtama || '');
+              }}
               className="w-full"
             >
               <option value="">-- Pilih petani --</option>
