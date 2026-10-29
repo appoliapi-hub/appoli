@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { addDoc, collection, getDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
 import { CalendarDays, Database, Loader2, MapPinned, Save, Sprout, Tractor } from 'lucide-react';
 import { auth, db } from '../../../../../lib/firebase';
 import { createAppoliPdf, downloadAppoliPdf, openAppoliPdf } from '../../../../../lib/appoli-pdf';
@@ -39,12 +40,16 @@ export default function DataLahanPage() {
   const [message, setMessage] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [savedRecordId, setSavedRecordId] = useState('');
+  const [namaPetugas, setNamaPetugas] = useState('');
   const selected = farmers.find((farmer) => farmer.idPetani === selectedId);
   const totalArea = lands.reduce((sum, land) => sum + parseArea(land.luas), 0);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, 'petani'), (snapshot) => setFarmers(snapshot.docs.map((document) => ({ idPetani: document.id, ...(document.data() as Omit<Farmer, 'idPetani'>) }))), (error) => console.error('Gagal memuat data petani:', error));
     return unsubscribe;
+  }, []);
+  useEffect(() => {
+    return onAuthStateChanged(auth, (user) => setNamaPetugas(user?.displayName || user?.email || ''));
   }, []);
 
   const selectFarmer = (id: string) => {
@@ -69,7 +74,8 @@ export default function DataLahanPage() {
     if (!selected) return;
     setSaving(true); setMessage('');
     try {
-      const reference = await addDoc(collection(db, 'dataLahan'), { idPetani: selected.idPetani, namaPetani: selected.namaPetani || '', namaPetugas: auth.currentUser?.displayName || auth.currentUser?.email || '', alamatPetani: selected.alamatPetani || '', kelompokTani: selected.kelompokTani || '', alamatLahan: address, statusMilik: ownership, lahan: lands, totalLuasHa: totalArea, kalenderMasaTanam: seasons, batasLahan: boundaries, ternak: livestock, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
+      const currentNamaPetugas = namaPetugas || auth.currentUser?.displayName || auth.currentUser?.email || '';
+      const reference = await addDoc(collection(db, 'dataLahan'), { idPetani: selected.idPetani, namaPetani: selected.namaPetani || '', namaPetugas: currentNamaPetugas, alamatPetani: selected.alamatPetani || '', kelompokTani: selected.kelompokTani || '', alamatLahan: address, statusMilik: ownership, lahan: lands, totalLuasHa: totalArea, kalenderMasaTanam: seasons, batasLahan: boundaries, ternak: livestock, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       const savedSnapshot = await getDoc(reference);
       const saved = savedSnapshot.data();
       if (!saved) throw new Error('Data tidak ditemukan setelah disimpan.');
@@ -91,7 +97,7 @@ export default function DataLahanPage() {
       <Section title="Ternak pendukung pupuk alami" icon={<Tractor className="h-5 w-5 text-orange-600" />}><div className="overflow-x-auto"><table className="w-full min-w-[720px] border-collapse text-sm"><thead><tr className="bg-slate-800 text-white"><th className="p-3 text-left">Jenis ternak</th><th className="p-3">Jumlah</th><th className="p-3 text-left">Pakan dan pengobatan</th><th className="p-3 text-left">Kondisi ternak</th></tr></thead><tbody>{livestock.map((animal, index) => <tr key={index} className="border-b border-slate-200">{(['jenis', 'jumlah', 'pakan', 'kondisi'] as const).map((field) => <td key={field} className="p-2"><input type={field === 'jumlah' ? 'number' : 'text'} value={animal[field]} onChange={(event) => updateList(setLivestock, index, field, event.target.value)} className="w-full rounded border border-slate-300 px-2 py-1.5" /></td>)}</tr>)}</tbody></table></div></Section>
       {message && <p className={`rounded-lg p-4 text-sm font-semibold ${message.includes('berhasil') ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>{message}</p>}<div className="flex justify-end"><button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-sky-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-sky-700 disabled:opacity-60">{saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}{saving ? 'Menyimpan...' : 'Simpan'}</button></div>
     </form>
-    {showPreview && selected && <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 p-4 print:static print:overflow-visible print:bg-white print:p-0"><div className="mx-auto w-fit max-w-full"><DataLahanPreview nama={selected.namaPetani || ''} kode={selected.idPetani} alamat={selected.alamatPetani || ''} kelompok={selected.kelompokTani || ''} alamatLahan={address} statusMilik={ownership} lands={lands} totalArea={totalArea} seasons={seasons} boundaries={boundaries} livestock={livestock} /><div className="fixed bottom-5 left-1/2 flex -translate-x-1/2 gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-xl print:hidden"><button type="button" onClick={() => setShowPreview(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">Tutup</button></div></div></div>}
+    {showPreview && selected && <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 p-4 print:static print:overflow-visible print:bg-white print:p-0"><div className="mx-auto w-fit max-w-full"><DataLahanPreview nama={selected.namaPetani || ''} kode={selected.idPetani} alamat={selected.alamatPetani || ''} kelompok={selected.kelompokTani || ''} namaPetugas={namaPetugas} alamatLahan={address} statusMilik={ownership} lands={lands} totalArea={totalArea} seasons={seasons} boundaries={boundaries} livestock={livestock} /><div className="fixed bottom-5 left-1/2 flex -translate-x-1/2 gap-3 rounded-lg border border-slate-200 bg-white p-3 shadow-xl print:hidden"><button type="button" onClick={() => setShowPreview(false)} className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">Tutup</button></div></div></div>}
   </div></>;
 }
 

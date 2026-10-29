@@ -457,7 +457,10 @@ function simpanDanCetakForm1(data) {
  * Menjaga agar sistem tidak crash jika input kosong/null.
  */
 function vText(val) { return val !== undefined && val !== null ? val : ''; }
-function vNum(val) { return val !== undefined && val !== null && val !== '' ? val : '0'; }
+function vNum(val) {
+  if (val === undefined || val === null || val === '' || isNaN(val)) return '0';
+  return Number(val).toLocaleString('id-ID');
+}
 
 // ==========================================
 // C. ENGINE FORM 2 (ANTI-KOLAPS)
@@ -899,7 +902,7 @@ function simpanDanCetakForm2(paketData) {
           </td>
           <td width="50%" class="text-center" style="height: 75px; vertical-align: top; padding-top: 8px;">
             <span class="fw-bold">Internal Inspektor</span><br><br><br><br>
-            <u>( .................................... )</u>
+            <u>( ${vText(paketData.inspektur || paketData.namaInspektur || paketData.namaPetugas || '....................................')} )</u>
           </td>
         </tr>
       </table>
@@ -1231,7 +1234,7 @@ function simpanDanCetakForm3(paketData) {
             </p>
             <div class="text-center" style="margin-top: 10px;">
               <span class="fw-bold">Tanda Tangan Petugas Lapang ICS:</span><br><br><br><br>
-              <u>( .................................... )</u>
+              <u>( ${vText(paketData.namaPetugas || paketData.petugasPendata || paketData.petugas || '....................................')} )</u>
             </div>
           </td>
         </tr>

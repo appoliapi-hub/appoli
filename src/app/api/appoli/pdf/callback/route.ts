@@ -4,7 +4,7 @@ import { getAdminServices } from '../../../../../../lib/firebase-admin';
 export const runtime = 'nodejs';
 
 const allowedCollections = new Set(['analisaUsaha', 'inspeksiICS', 'dataLahan']);
-const pdfTemplateVersion = '2026-10-29-analisa-identity-v2';
+const pdfTemplateVersion = '2026-10-29-inspeksi-checks-inspektur-number-format-v5';
 
 export async function POST(request: NextRequest) {
   const secret = process.env.APPOLI_CALLBACK_SECRET || '';

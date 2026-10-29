@@ -154,6 +154,7 @@ function pdfWorkerAnalisa(source) {
 function pdfWorkerInspeksi(source) {
   var output = pdfWorkerCopy(source);
   output.nama = source.namaPetani || '';
+  output.inspektur = source.inspektur || source.namaInspektur || source.namaPetugas || '';
   output.kelompok = [source.alamatPetani, source.kelompokTani].filter(String).join(' / ');
   output.tglInspeksi = source.tanggal || '';
   output.jamInspeksi = source.jam || '';
